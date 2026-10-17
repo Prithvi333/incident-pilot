@@ -3,8 +3,8 @@ package com.incidentpilot.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
+import com.incidentpilot.dto.IncidentStatsResponse;
 import com.incidentpilot.dto.UpdateStatusRequest;
-import com.incidentpilot.exception.GlobalExceptionHandler;
 import com.incidentpilot.exception.IncidentNotFoundException;
 import com.incidentpilot.exception.InvalidTransitionException;
 import com.incidentpilot.model.IncidentStatus;
@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -157,5 +158,41 @@ class IncidentControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Cannot transition from TRIGGERED to RESOLVED"));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents?status=TRIGGERED — filters by status")
+    void getIncidentsFilteredByStatus() throws Exception {
+        List<IncidentResponse> filtered = List.of(
+                IncidentResponse.builder().id(1L).title("Incident 1")
+                        .status(IncidentStatus.TRIGGERED).severity(Severity.P1_CRITICAL)
+                        .serviceName("svc").createdAt(LocalDateTime.now()).build()
+        );
+        when(incidentService.getFilteredIncidents(IncidentStatus.TRIGGERED, null)).thenReturn(filtered);
+
+        mockMvc.perform(get("/api/incidents").param("status", "TRIGGERED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].status").value("TRIGGERED"));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents/stats — returns stats summary")
+    void getStats() throws Exception {
+        IncidentStatsResponse stats = IncidentStatsResponse.builder()
+                .totalIncidents(5)
+                .activeIncidents(3)
+                .resolvedIncidents(2)
+                .averageResolutionMinutes(45.0)
+                .countBySeverity(Map.of("P1_CRITICAL", 2L, "P2_HIGH", 3L))
+                .countByStatus(Map.of("TRIGGERED", 1L, "RESOLVED", 2L))
+                .build();
+        when(incidentService.getStats()).thenReturn(stats);
+
+        mockMvc.perform(get("/api/incidents/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalIncidents").value(5))
+                .andExpect(jsonPath("$.activeIncidents").value(3))
+                .andExpect(jsonPath("$.averageResolutionMinutes").value(45.0));
     }
 }

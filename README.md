@@ -44,9 +44,12 @@ mvn test
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/incidents` | Create a new incident |
-| GET | `/api/incidents` | List all incidents |
+| GET | `/api/incidents` | List all incidents (supports `?status=` and `?severity=` filters) |
+| GET | `/api/incidents/stats` | Aggregate stats (totals, MTTR, breakdowns) |
 | GET | `/api/incidents/{id}` | Get incident by ID |
 | PATCH | `/api/incidents/{id}/status` | Transition incident status |
+| POST | `/api/incidents/{id}/timeline` | Add a timeline event (comment/action) |
+| GET | `/api/incidents/{id}/timeline` | Get incident timeline |
 
 ### Incident Lifecycle
 
@@ -74,8 +77,8 @@ backend/
 ## Roadmap
 
 - [x] Incident domain with state machine
-- [ ] Incident timeline (event log)
-- [ ] API filtering and statistics
+- [x] Incident timeline (event log)
+- [x] API filtering and statistics
 - [ ] React frontend dashboard
 - [ ] AI-powered similar incident search (RAG)
 - [ ] Docker + CI/CD pipeline

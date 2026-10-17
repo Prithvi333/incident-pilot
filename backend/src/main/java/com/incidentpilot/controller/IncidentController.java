@@ -2,7 +2,10 @@ package com.incidentpilot.controller;
 
 import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
+import com.incidentpilot.dto.IncidentStatsResponse;
 import com.incidentpilot.dto.UpdateStatusRequest;
+import com.incidentpilot.model.IncidentStatus;
+import com.incidentpilot.model.Severity;
 import com.incidentpilot.service.IncidentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,9 +29,27 @@ public class IncidentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    /**
+     * List incidents with optional filters.
+     * Examples:
+     *   GET /api/incidents                         → all
+     *   GET /api/incidents?status=TRIGGERED         → only triggered
+     *   GET /api/incidents?severity=P1_CRITICAL     → only P1
+     *   GET /api/incidents?status=TRIGGERED&severity=P1_CRITICAL → both
+     */
     @GetMapping
-    public ResponseEntity<List<IncidentResponse>> getAllIncidents() {
-        return ResponseEntity.ok(incidentService.getAllIncidents());
+    public ResponseEntity<List<IncidentResponse>> getIncidents(
+            @RequestParam(required = false) IncidentStatus status,
+            @RequestParam(required = false) Severity severity) {
+        List<IncidentResponse> incidents = (status == null && severity == null)
+                ? incidentService.getAllIncidents()
+                : incidentService.getFilteredIncidents(status, severity);
+        return ResponseEntity.ok(incidents);
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<IncidentStatsResponse> getStats() {
+        return ResponseEntity.ok(incidentService.getStats());
     }
 
     @GetMapping("/{id}")
