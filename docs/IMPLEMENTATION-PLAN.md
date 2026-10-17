@@ -39,40 +39,38 @@ AI, security, and DevOps. Each milestone produces a testable, demoable increment
 
 ---
 
-## Milestone 3: React Frontend Dashboard
-**Status**: Not started
-**Depends on**: Milestones 1–2, plus a CORS config bean in backend
+## Milestone 3: React Frontend Dashboard ✅
+**Status**: Complete
 
-- [ ] React 18 + Vite + Tailwind CSS scaffold in `frontend/`
-- [ ] Axios API layer with centralized base URL config
-- [ ] Dashboard page: stats cards, active incidents list
-- [ ] Incident list page: table with status/severity filter dropdowns
-- [ ] Incident detail page: info panel, status transition button, timeline view
-- [ ] Create incident form with client-side validation
-- [ ] Add timeline event form (COMMENT/ACTION)
-- [ ] Reusable components: StatusBadge, SeverityBadge, StatsCard
-- [ ] Backend: CORS `WebMvcConfigurer` bean for `localhost:5173`
+- [x] React 19 + Vite 8 + Tailwind CSS 4 scaffold in `frontend/`
+- [x] Axios API layer with centralized base URL config
+- [x] Dashboard page: stats cards, active incidents list
+- [x] Incident list page: table with status/severity filter dropdowns
+- [x] Incident detail page: info panel, status transition button, timeline view
+- [x] Create incident form with client-side validation
+- [x] Add timeline event form (COMMENT/ACTION)
+- [x] Reusable components: StatusBadge, SeverityBadge, StatsCard
+- [x] Backend: CORS `CorsConfigurationSource` bean for `localhost:5173`
 
 **Acceptance**: Full create → acknowledge → investigate → resolve → view timeline
 flow works through the UI. `npm run build` succeeds.
 
 ---
 
-## Milestone 4: Spring Security & JWT Authentication
-**Status**: Not started
-**Depends on**: Milestone 3 (so the frontend can test auth flows)
+## Milestone 4: Spring Security & JWT Authentication ✅
+**Status**: Complete
 
-- [ ] `spring-boot-starter-security` dependency
-- [ ] User entity, UserRepository
-- [ ] JWT token generation and validation (jjwt library)
-- [ ] Login/register endpoints
-- [ ] SecurityFilterChain with JWT filter
-- [ ] Role-based access: ADMIN, ENGINEER, VIEWER
-- [ ] `@PreAuthorize` on controller methods
-- [ ] Frontend: login page, token storage, Axios interceptor for Authorization header
-- [ ] Tests with `@WithMockUser`
+- [x] `spring-boot-starter-security` + `jjwt` 0.12.6 dependencies
+- [x] User entity with BCrypt password, Role enum (ADMIN, ENGINEER, VIEWER)
+- [x] JWT token generation and validation (JwtService)
+- [x] POST /api/auth/register, POST /api/auth/login endpoints
+- [x] SecurityFilterChain: stateless, CSRF disabled, JWT filter
+- [x] Role-based access: VIEWER=read-only, ENGINEER=read+write, ADMIN=all
+- [x] Custom AuthenticationEntryPoint returning JSON 401/403
+- [x] Frontend: login/register pages, AuthContext, ProtectedRoute, Axios interceptor
+- [x] 10 new tests (5 JwtService, 5 AuthController), existing tests updated with @WithMockUser
 
-**Acceptance**: Unauthenticated requests return 401. Role restrictions enforced.
+**Acceptance**: Unauthenticated requests return 401. Role restrictions enforced. 44 tests pass.
 
 ---
 
