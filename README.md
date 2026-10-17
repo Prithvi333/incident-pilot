@@ -10,9 +10,9 @@ When production goes down, on-call engineers waste 30–60 minutes searching thr
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 20, Spring Boot 3.4, Maven |
-| Database | H2 (dev), MySQL (production) |
-| Frontend | React, Tailwind CSS (planned) |
+| Backend | Java 20, Spring Boot 3.4.1, Maven |
+| Database | H2 (dev), MySQL (production — planned) |
+| Frontend | React 19, Vite 8, Tailwind CSS 4, React Router, Axios, Recharts |
 | AI | Spring AI, RAG, vector database (planned) |
 | DevOps | Docker, Jenkins, Kubernetes, AWS (planned) |
 
@@ -22,8 +22,9 @@ When production goes down, on-call engineers waste 30–60 minutes searching thr
 
 - Java 20+
 - Maven 3.9+
+- Node.js 22+ and npm 10+
 
-### Run the application
+### Run the backend
 
 ```bash
 cd backend
@@ -31,6 +32,16 @@ mvn spring-boot:run
 ```
 
 The API starts at `http://localhost:8080`.
+
+### Run the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The UI starts at `http://localhost:5173`. API calls are proxied to the backend automatically.
 
 ### Run tests
 
@@ -70,8 +81,18 @@ backend/
 │   ├── service/        # Business logic
 │   ├── controller/     # REST APIs
 │   ├── exception/      # Error handling
-│   └── config/         # Configuration classes
+│   └── config/         # CORS and app configuration
 └── src/test/java/      # Unit and integration tests
+
+frontend/
+├── src/
+│   ├── api/            # Axios API client
+│   ├── components/     # Navbar, StatusBadge, SeverityBadge, StatsCard
+│   ├── pages/          # Dashboard, IncidentList, IncidentDetail, CreateIncident
+│   ├── App.jsx         # Router setup
+│   └── main.jsx        # Entry point
+├── vite.config.js      # Vite + Tailwind + API proxy
+└── package.json
 ```
 
 ## Roadmap
@@ -79,7 +100,8 @@ backend/
 - [x] Incident domain with state machine
 - [x] Incident timeline (event log)
 - [x] API filtering and statistics
-- [ ] React frontend dashboard
+- [x] React frontend dashboard
+- [ ] Spring Security & JWT authentication
 - [ ] AI-powered similar incident search (RAG)
 - [ ] Docker + CI/CD pipeline
-- [ ] Kubernetes deployment
+- [ ] Kubernetes & AWS deployment

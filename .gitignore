@@ -33,11 +33,13 @@ application-secret.yml
 *.log
 logs/
 
-# === Node (for future React frontend) ===
+# === Node / Frontend ===
 node_modules/
 dist/
 build/
 .cache/
+.vite/
+*.local
 
 # === Docker ===
 docker-compose.override.yml
