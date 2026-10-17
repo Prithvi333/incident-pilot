@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard' },
@@ -8,6 +9,7 @@ const NAV_ITEMS = [
 
 export default function Navbar() {
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <nav className="bg-gray-900 text-white shadow-lg">
@@ -16,7 +18,7 @@ export default function Navbar() {
           <Link to="/" className="text-lg font-bold tracking-tight">
             🔥 IncidentPilot
           </Link>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             {NAV_ITEMS.map(({ path, label }) => (
               <Link
                 key={path}
@@ -30,6 +32,19 @@ export default function Navbar() {
                 {label}
               </Link>
             ))}
+            {user && (
+              <>
+                <span className="ml-4 text-xs text-gray-400">
+                  {user.username} ({user.role})
+                </span>
+                <button
+                  onClick={logout}
+                  className="ml-2 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:bg-gray-800 rounded transition-colors"
+                >
+                  Logout
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

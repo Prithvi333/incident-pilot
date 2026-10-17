@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -25,15 +26,12 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * Integration tests for the REST API layer.
- * @WebMvcTest loads only the web layer (controller + exception handler),
- * not the full application context — keeps tests fast.
- */
 @WebMvcTest(IncidentController.class)
+@WithMockUser(roles = "ENGINEER")
 class IncidentControllerTest {
 
     @Autowired
@@ -44,6 +42,12 @@ class IncidentControllerTest {
 
     @MockitoBean
     private IncidentService incidentService;
+
+    @MockitoBean
+    private com.incidentpilot.security.JwtService jwtService;
+
+    @MockitoBean
+    private com.incidentpilot.security.CustomUserDetailsService customUserDetailsService;
 
     @Test
     @DisplayName("POST /api/incidents — creates incident and returns 201")
@@ -71,6 +75,7 @@ class IncidentControllerTest {
         when(incidentService.createIncident(any(CreateIncidentRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/api/incidents")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -88,6 +93,7 @@ class IncidentControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/incidents")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -137,6 +143,7 @@ class IncidentControllerTest {
         when(incidentService.updateStatus(eq(1L), eq(IncidentStatus.ACKNOWLEDGED))).thenReturn(response);
 
         mockMvc.perform(patch("/api/incidents/1/status")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -154,6 +161,7 @@ class IncidentControllerTest {
                 .thenThrow(new InvalidTransitionException(IncidentStatus.TRIGGERED, IncidentStatus.RESOLVED));
 
         mockMvc.perform(patch("/api/incidents/1/status")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())

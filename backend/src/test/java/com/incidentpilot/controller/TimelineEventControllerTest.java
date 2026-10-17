@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -20,10 +21,12 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(TimelineEventController.class)
+@WithMockUser(roles = "ENGINEER")
 class TimelineEventControllerTest {
 
     @Autowired
@@ -34,6 +37,12 @@ class TimelineEventControllerTest {
 
     @MockitoBean
     private TimelineEventService timelineEventService;
+
+    @MockitoBean
+    private com.incidentpilot.security.JwtService jwtService;
+
+    @MockitoBean
+    private com.incidentpilot.security.CustomUserDetailsService customUserDetailsService;
 
     @Test
     @DisplayName("POST /api/incidents/{id}/timeline — adds event and returns 201")
@@ -57,6 +66,7 @@ class TimelineEventControllerTest {
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/incidents/1/timeline")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -75,6 +85,7 @@ class TimelineEventControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/incidents/1/timeline")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
