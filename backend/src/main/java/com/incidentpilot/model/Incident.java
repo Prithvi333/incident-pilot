@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Core domain entity — represents a single production incident.
@@ -52,6 +54,16 @@ public class Incident {
 
     /** Set when the incident moves to RESOLVED status */
     private LocalDateTime resolvedAt;
+
+    /**
+     * One incident has many timeline events.
+     * CascadeType.ALL means if we delete an incident, its timeline events go too.
+     * orphanRemoval ensures events removed from the list are deleted from the DB.
+     * LAZY fetch means events are NOT loaded until you call getTimelineEvents().
+     */
+    @OneToMany(mappedBy = "incident", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<TimelineEvent> timelineEvents = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
