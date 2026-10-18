@@ -36,6 +36,9 @@ class IncidentServiceTest {
     @Mock
     private TimelineEventService timelineEventService;
 
+    @Mock
+    private RagService ragService;
+
     @InjectMocks
     private IncidentService incidentService;
 

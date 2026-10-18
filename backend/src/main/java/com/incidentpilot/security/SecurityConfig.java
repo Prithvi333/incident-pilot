@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/incidents/**").hasAnyRole("VIEWER", "ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/incidents/**").hasAnyRole("ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/incidents/**").hasAnyRole("ENGINEER", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/documents/**").hasAnyRole("VIEWER", "ENGINEER", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/documents/**").hasAnyRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

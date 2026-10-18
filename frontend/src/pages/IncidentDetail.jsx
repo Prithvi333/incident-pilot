@@ -8,6 +8,7 @@ import {
 } from '../api/incidentApi';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
+import SimilarIncidents from '../components/SimilarIncidents';
 
 /**
  * Maps each status to its single valid next status.
@@ -156,6 +157,11 @@ export default function IncidentDetail() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* AI Similar Incidents */}
+      <div className="mb-8">
+        <SimilarIncidents incidentId={id} />
       </div>
 
       {/* Timeline */}

@@ -22,9 +22,44 @@ spring:
       hibernate:
         format_sql: true
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: llama3.2
+      embedding:
+        options:
+          model: nomic-embed-text
+    vectorstore:
+      qdrant:
+        host: localhost
+        port: 6334
+        collection-name: incident-pilot
+        initialize-schema: true
+
 server:
   port: 8080
 
 jwt:
   secret: aW5jaWRlbnRwaWxvdC1kZXYtc2VjcmV0LWtleS10aGF0LWlzLWxvbmctZW5vdWdoLWZvci1obWFjLXNoYTI1Ng==
   expiration-ms: 86400000
+
+aws:
+  s3:
+    bucket: incident-pilot-docs
+    region: us-east-1
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      ai-service:
+        sliding-window-size: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 2

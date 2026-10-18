@@ -3,10 +3,12 @@ package com.incidentpilot.controller;
 import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
 import com.incidentpilot.dto.IncidentStatsResponse;
+import com.incidentpilot.dto.RagResponse;
 import com.incidentpilot.dto.UpdateStatusRequest;
 import com.incidentpilot.model.IncidentStatus;
 import com.incidentpilot.model.Severity;
 import com.incidentpilot.service.IncidentService;
+import com.incidentpilot.service.RagService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import java.util.List;
 public class IncidentController {
 
     private final IncidentService incidentService;
+    private final RagService ragService;
 
     @PostMapping
     public ResponseEntity<IncidentResponse> createIncident(
@@ -55,6 +58,13 @@ public class IncidentController {
     @GetMapping("/{id}")
     public ResponseEntity<IncidentResponse> getIncident(@PathVariable Long id) {
         return ResponseEntity.ok(incidentService.getIncident(id));
+    }
+
+    @GetMapping("/{id}/similar")
+    public ResponseEntity<RagResponse> getSimilarIncidents(@PathVariable Long id) {
+        IncidentResponse incident = incidentService.getIncident(id);
+        RagResponse response = ragService.findSimilarIncidents(incident.getTitle(), incident.getDescription());
+        return ResponseEntity.ok(response);
     }
 
     /**

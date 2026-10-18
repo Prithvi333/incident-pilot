@@ -40,27 +40,39 @@
 - Frontend: AuthContext, ProtectedRoute, LoginPage, RegisterPage
 - Axios interceptor adds Bearer token, 401 redirects to login
 
+### Milestone 5: AI-Powered Similar Incident Search (RAG) ✅
+- Spring AI 1.0.0 with Ollama (local LLM + embeddings)
+- Qdrant vector store for semantic similarity search
+- Auto-embed incidents on creation into vector store
+- Document upload API (postmortems/runbooks) with chunking + embedding
+- GET /api/incidents/{id}/similar — RAG-powered similar incident search + AI resolution suggestion
+- Frontend: SimilarIncidents panel on incident detail, Knowledge Base page for doc uploads
+- Resilience4j circuit breaker on all AI calls with graceful fallback
+- 8 new tests (3 DocumentController, 5 RagService)
+
 ## Test Results (verified 2026-10-17)
 ```
 AuthControllerTest:            5 tests — PASS
+DocumentControllerTest:        3 tests — PASS
 IncidentControllerTest:        8 tests — PASS
 TimelineEventControllerTest:   4 tests — PASS
 IncidentStatusTest:            5 tests — PASS
 JwtServiceTest:                5 tests — PASS
 IncidentServiceTest:          12 tests — PASS
+RagServiceTest:                5 tests — PASS
 TimelineEventServiceTest:      5 tests — PASS
 ─────────────────────────────────────────────
-Total:                        44 tests — BUILD SUCCESS
+Total:                        52 tests — BUILD SUCCESS
 ```
 
 ## File Inventory
 ```
-Backend production code:  24 files (model, dto, service, repo, controller, security, config, exception)
-Backend test code:         7 files
-Frontend source:          12 files (pages, components, context, api)
+Backend production code:  30 files (model, dto, service, repo, controller, security, config, exception)
+Backend test code:         9 files
+Frontend source:          15 files (pages, components, context, api)
 Config/build:              4 files (pom.xml, application.yml, .gitignore, vite.config.js)
 Documentation:             5 files (CLAUDE.md, README.md, docs/*)
 ```
 
 ## Next Task
-**Milestone 5: AI-Powered Similar Incident Search (RAG)** — Spring AI, document upload, vector store, retrieval.
+**Milestone 6: Production Readiness** — MySQL, Testcontainers, audit logging, SLA tracking, rate limiting.
