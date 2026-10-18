@@ -74,21 +74,20 @@ flow works through the UI. `npm run build` succeeds.
 
 ---
 
-## Milestone 5: AI-Powered Similar Incident Search (RAG)
-**Status**: Not started
-**Depends on**: Milestones 1–2 (backend), Milestone 3 (UI to show results)
+## Milestone 5: AI-Powered Similar Incident Search (RAG) ✅
+**Status**: Complete
 
-- [ ] Spring AI dependency + Ollama for local dev (free)
-- [ ] Document upload API (store files in local filesystem or S3)
-- [ ] Document chunking and embedding pipeline
-- [ ] Vector store integration (ChromaDB or PGVector)
-- [ ] RAG retrieval: on incident create/view, find similar past incidents
-- [ ] Resolution suggestions panel in frontend incident detail page
-- [ ] Circuit breaker (Resilience4j) on AI calls with fallback
-- [ ] Tests for embedding service, retrieval, graceful degradation
+- [x] Spring AI 1.0.0 + Ollama for local dev (free, no API keys)
+- [x] Document upload API (POST /api/documents, stored on local filesystem)
+- [x] Auto-embed incidents on creation into Qdrant vector store
+- [x] Qdrant vector store for semantic similarity search
+- [x] RAG retrieval: GET /api/incidents/{id}/similar finds similar past incidents
+- [x] LLM-generated resolution suggestions based on similar incidents
+- [x] Frontend: SimilarIncidents panel on incident detail, Knowledge Base page
+- [x] Resilience4j circuit breaker on all AI calls with graceful fallback
+- [x] 8 new tests (3 DocumentController, 5 RagService), 52 total pass
 
-**Acceptance**: Upload 3-5 sample postmortems. Create a new incident with similar
-description. Similar incidents appear in the UI. AI down → fallback message shown.
+**Acceptance**: Upload postmortems via Knowledge Base. Create incident, view similar matches + AI suggestion. AI down → fallback message shown.
 
 ---
 

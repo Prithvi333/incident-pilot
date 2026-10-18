@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { path: '/', label: 'Dashboard' },
   { path: '/incidents', label: 'Incidents' },
   { path: '/incidents/new', label: 'Create Incident' },
+  { path: '/documents', label: 'Knowledge Base' },
 ];
 
 export default function Navbar() {

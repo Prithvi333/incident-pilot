@@ -27,6 +27,7 @@ public class IncidentService {
 
     private final IncidentRepository incidentRepository;
     private final TimelineEventService timelineEventService;
+    private final RagService ragService;
 
     /** Statuses that mean the incident is still active (not finished) */
     private static final Set<IncidentStatus> ACTIVE_STATUSES = Set.of(
@@ -45,6 +46,7 @@ public class IncidentService {
                 .build();
 
         Incident saved = incidentRepository.save(incident);
+        ragService.embedIncident(saved);
         return IncidentResponse.from(saved);
     }
 

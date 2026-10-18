@@ -44,6 +44,9 @@ class IncidentControllerTest {
     private IncidentService incidentService;
 
     @MockitoBean
+    private com.incidentpilot.service.RagService ragService;
+
+    @MockitoBean
     private com.incidentpilot.security.JwtService jwtService;
 
     @MockitoBean

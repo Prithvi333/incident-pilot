@@ -8,6 +8,7 @@ import IncidentDetail from './pages/IncidentDetail';
 import CreateIncident from './pages/CreateIncident';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import DocumentUpload from './pages/DocumentUpload';
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
                       <Route path="/incidents" element={<IncidentList />} />
                       <Route path="/incidents/new" element={<CreateIncident />} />
                       <Route path="/incidents/:id" element={<IncidentDetail />} />
+                      <Route path="/documents" element={<DocumentUpload />} />
                     </Routes>
                   </main>
                 </div>
