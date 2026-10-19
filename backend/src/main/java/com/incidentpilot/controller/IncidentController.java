@@ -1,5 +1,6 @@
 package com.incidentpilot.controller;
 
+import com.incidentpilot.dto.AuditLogResponse;
 import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
 import com.incidentpilot.dto.IncidentStatsResponse;
@@ -7,6 +8,7 @@ import com.incidentpilot.dto.RagResponse;
 import com.incidentpilot.dto.UpdateStatusRequest;
 import com.incidentpilot.model.IncidentStatus;
 import com.incidentpilot.model.Severity;
+import com.incidentpilot.service.AuditService;
 import com.incidentpilot.service.IncidentService;
 import com.incidentpilot.service.RagService;
 import jakarta.validation.Valid;
@@ -24,6 +26,7 @@ public class IncidentController {
 
     private final IncidentService incidentService;
     private final RagService ragService;
+    private final AuditService auditService;
 
     @PostMapping
     public ResponseEntity<IncidentResponse> createIncident(
@@ -77,5 +80,13 @@ public class IncidentController {
             @Valid @RequestBody UpdateStatusRequest request) {
         IncidentResponse response = incidentService.updateStatus(id, request.getStatus());
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/audit")
+    public ResponseEntity<List<AuditLogResponse>> getAuditLog(@PathVariable Long id) {
+        List<AuditLogResponse> logs = auditService.getLogsForEntity("Incident", id).stream()
+                .map(AuditLogResponse::from)
+                .toList();
+        return ResponseEntity.ok(logs);
     }
 }

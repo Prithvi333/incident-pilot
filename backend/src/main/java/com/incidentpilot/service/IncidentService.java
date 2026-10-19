@@ -28,6 +28,7 @@ public class IncidentService {
     private final IncidentRepository incidentRepository;
     private final TimelineEventService timelineEventService;
     private final RagService ragService;
+    private final AuditService auditService;
 
     /** Statuses that mean the incident is still active (not finished) */
     private static final Set<IncidentStatus> ACTIVE_STATUSES = Set.of(
@@ -47,6 +48,7 @@ public class IncidentService {
 
         Incident saved = incidentRepository.save(incident);
         ragService.embedIncident(saved);
+        auditService.log("CREATE", "Incident", saved.getId(), null, saved.getStatus().name());
         return IncidentResponse.from(saved);
     }
 
@@ -115,8 +117,8 @@ public class IncidentService {
 
         Incident updated = incidentRepository.save(incident);
 
-        // Auto-create a timeline entry so the transition is recorded
         timelineEventService.recordStatusChange(updated, oldStatus, newStatus);
+        auditService.log("STATUS_CHANGE", "Incident", updated.getId(), oldStatus.name(), newStatus.name());
 
         return IncidentResponse.from(updated);
     }

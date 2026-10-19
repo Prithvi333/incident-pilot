@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSimilarIncidents } from '../api/incidentApi';
+import { Sparkles, WifiOff, Lightbulb, FileText } from 'lucide-react';
+import clsx from 'clsx';
 
 export default function SimilarIncidents({ incidentId }) {
   const [data, setData] = useState(null);
@@ -19,36 +21,90 @@ export default function SimilarIncidents({ incidentId }) {
     fetchSimilar();
   }, [incidentId]);
 
-  if (loading) return <p className="text-sm text-gray-400">Searching for similar incidents...</p>;
-  if (!data) return <p className="text-sm text-gray-400">Could not load AI suggestions.</p>;
+  if (loading) {
+    return (
+      <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="skeleton w-5 h-5 rounded" />
+          <div className="skeleton w-48 h-4 rounded" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="skeleton w-full h-16 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+        <div className="flex items-center gap-2 text-zinc-500">
+          <WifiOff size={16} />
+          <span className="text-sm">Could not load AI suggestions.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow p-5">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase mb-3 flex items-center gap-2">
-        AI-Powered Similar Incidents
+    <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5 animate-fade-in">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-violet-500/10">
+            <Sparkles size={16} className="text-violet-400" />
+          </div>
+          <h3 className="text-sm font-semibold text-zinc-200">AI Insights</h3>
+        </div>
         {!data.aiAvailable && (
-          <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">AI Offline</span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 ring-1 ring-white/[0.06]">
+            <WifiOff size={12} />
+            AI Offline
+          </span>
         )}
-      </h2>
+      </div>
 
       {data.resolutionSuggestion && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
-          <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Resolution Suggestion</p>
-          <p className="text-sm text-blue-900 whitespace-pre-line">{data.resolutionSuggestion}</p>
+        <div className="mb-4 p-4 rounded-lg bg-indigo-500/[0.07] border border-indigo-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Lightbulb size={14} className="text-indigo-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400">
+              Resolution Suggestion
+            </span>
+          </div>
+          <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
+            {data.resolutionSuggestion}
+          </p>
         </div>
       )}
 
       {data.similarMatches.length === 0 ? (
-        <p className="text-sm text-gray-400">No similar incidents found yet.</p>
+        <p className="text-sm text-zinc-500">No similar incidents found yet.</p>
       ) : (
         <div className="space-y-2">
           {data.similarMatches.map((match, idx) => (
-            <div key={idx} className="border border-gray-200 rounded p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-gray-500">{match.source}</span>
-                <span className="text-xs text-gray-400">{(match.score * 100).toFixed(0)}% match</span>
+            <div
+              key={idx}
+              className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-colors"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-400">
+                  <FileText size={12} />
+                  {match.source}
+                </span>
+                <span className={clsx(
+                  'text-[11px] font-bold px-2 py-0.5 rounded-full',
+                  match.score >= 0.8
+                    ? 'text-emerald-400 bg-emerald-500/10'
+                    : match.score >= 0.6
+                      ? 'text-amber-400 bg-amber-500/10'
+                      : 'text-zinc-400 bg-zinc-800'
+                )}>
+                  {(match.score * 100).toFixed(0)}% match
+                </span>
               </div>
-              <p className="text-sm text-gray-700 line-clamp-3">{match.content}</p>
+              <p className="text-sm text-zinc-400 line-clamp-2 leading-relaxed">{match.content}</p>
             </div>
           ))}
         </div>

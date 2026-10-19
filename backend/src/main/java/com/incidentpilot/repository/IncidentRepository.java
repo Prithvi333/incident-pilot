@@ -5,6 +5,7 @@ import com.incidentpilot.model.IncidentStatus;
 import com.incidentpilot.model.Severity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface IncidentRepository extends JpaRepository<Incident, Long> {
@@ -16,4 +17,6 @@ public interface IncidentRepository extends JpaRepository<Incident, Long> {
     List<Incident> findByStatusAndSeverity(IncidentStatus status, Severity severity);
 
     List<Incident> findByServiceName(String serviceName);
+
+    List<Incident> findByStatusIn(Collection<IncidentStatus> statuses);
 }

@@ -4,6 +4,7 @@ target/
 *.jar
 *.war
 *.ear
+*.hprof
 
 # === IDE ===
 .idea/
@@ -17,17 +18,24 @@ target/
 *.swp
 *.swo
 *~
+.factorypath
+.springBeans
+.sts4-cache
 
 # === OS ===
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
 
 # === Environment / Secrets ===
 .env
 *.env
+.env.*
 application-local.yml
+application-local.properties
 application-secret.yml
+application-secret.properties
 
 # === Logs ===
 *.log
@@ -36,13 +44,27 @@ logs/
 # === Node / Frontend ===
 node_modules/
 dist/
+dist-ssr/
 build/
 .cache/
 .vite/
 *.local
+
+# === Playwright / Testing ===
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # === Docker ===
 docker-compose.override.yml
 
 # === Spring Boot ===
 spring-shell.log
+
+# === GitHub auto-generated ===
+.github/modernize/
+
+# === AI tooling (local config) ===
+.claude/
+CLAUDE.md

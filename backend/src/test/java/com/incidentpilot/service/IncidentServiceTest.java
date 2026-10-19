@@ -39,6 +39,9 @@ class IncidentServiceTest {
     @Mock
     private RagService ragService;
 
+    @Mock
+    private AuditService auditService;
+
     @InjectMocks
     private IncidentService incidentService;
 

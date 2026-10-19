@@ -4,12 +4,12 @@ import com.incidentpilot.dto.RagResponse;
 import com.incidentpilot.dto.SimilarMatch;
 import com.incidentpilot.model.Incident;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,15 +17,30 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class RagService {
 
     private final VectorStore vectorStore;
     private final ChatModel chatModel;
 
+    public RagService(ObjectProvider<VectorStore> vectorStoreProvider,
+                      ObjectProvider<ChatModel> chatModelProvider) {
+        this.vectorStore = vectorStoreProvider.getIfAvailable();
+        this.chatModel = chatModelProvider.getIfAvailable();
+        if (this.vectorStore == null) {
+            log.warn("VectorStore not available — RAG embedding and search will be disabled");
+        }
+        if (this.chatModel == null) {
+            log.warn("ChatModel not available — AI suggestion generation will be disabled");
+        }
+    }
+
     @CircuitBreaker(name = "ai-service", fallbackMethod = "embedIncidentFallback")
     public void embedIncident(Incident incident) {
+        if (vectorStore == null) {
+            log.debug("Skipping embedIncident — VectorStore not configured");
+            return;
+        }
         String content = "Incident: " + incident.getTitle()
                 + "\nService: " + incident.getServiceName()
                 + "\nSeverity: " + incident.getSeverity().name()
@@ -43,6 +58,10 @@ public class RagService {
 
     @CircuitBreaker(name = "ai-service", fallbackMethod = "embedDocumentFallback")
     public void embedDocument(String text, String filename) {
+        if (vectorStore == null) {
+            log.debug("Skipping embedDocument — VectorStore not configured");
+            return;
+        }
         Document doc = new Document(text, Map.of(
                 "type", "document",
                 "source", filename
@@ -53,6 +72,14 @@ public class RagService {
 
     @CircuitBreaker(name = "ai-service", fallbackMethod = "findSimilarFallback")
     public RagResponse findSimilarIncidents(String title, String description) {
+        if (vectorStore == null) {
+            return RagResponse.builder()
+                    .similarMatches(List.of())
+                    .resolutionSuggestion("Vector store is not configured. Start Qdrant to enable similarity search.")
+                    .aiAvailable(false)
+                    .build();
+        }
+
         String query = title + (description != null ? " " + description : "");
 
         List<Document> results = vectorStore.similaritySearch(
@@ -83,6 +110,10 @@ public class RagService {
     private String generateSuggestion(List<Document> results, String title, String description) {
         if (results.isEmpty()) {
             return "No similar incidents found. This appears to be a new type of incident.";
+        }
+
+        if (chatModel == null) {
+            return "Similar incidents found but AI suggestion generation is not available.";
         }
 
         String context = results.stream()

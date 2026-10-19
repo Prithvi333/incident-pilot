@@ -4,16 +4,17 @@ import com.incidentpilot.dto.RagResponse;
 import com.incidentpilot.model.Incident;
 import com.incidentpilot.model.IncidentStatus;
 import com.incidentpilot.model.Severity;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
 import java.util.Map;
@@ -21,8 +22,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RagServiceTest {
@@ -33,8 +33,17 @@ class RagServiceTest {
     @Mock
     private ChatModel chatModel;
 
-    @InjectMocks
     private RagService ragService;
+
+    @SuppressWarnings("unchecked")
+    @BeforeEach
+    void setUp() {
+        ObjectProvider<VectorStore> vectorStoreProvider = mock(ObjectProvider.class);
+        ObjectProvider<ChatModel> chatModelProvider = mock(ObjectProvider.class);
+        when(vectorStoreProvider.getIfAvailable()).thenReturn(vectorStore);
+        when(chatModelProvider.getIfAvailable()).thenReturn(chatModel);
+        ragService = new RagService(vectorStoreProvider, chatModelProvider);
+    }
 
     @Test
     @DisplayName("embedIncident stores incident in vector store")
