@@ -3,8 +3,8 @@ package com.incidentpilot.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
+import com.incidentpilot.dto.IncidentStatsResponse;
 import com.incidentpilot.dto.UpdateStatusRequest;
-import com.incidentpilot.exception.GlobalExceptionHandler;
 import com.incidentpilot.exception.IncidentNotFoundException;
 import com.incidentpilot.exception.InvalidTransitionException;
 import com.incidentpilot.model.IncidentStatus;
@@ -16,23 +16,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * Integration tests for the REST API layer.
- * @WebMvcTest loads only the web layer (controller + exception handler),
- * not the full application context — keeps tests fast.
- */
 @WebMvcTest(IncidentController.class)
+@WithMockUser(roles = "ENGINEER")
 class IncidentControllerTest {
 
     @Autowired
@@ -43,6 +42,18 @@ class IncidentControllerTest {
 
     @MockitoBean
     private IncidentService incidentService;
+
+    @MockitoBean
+    private com.incidentpilot.service.RagService ragService;
+
+    @MockitoBean
+    private com.incidentpilot.service.AuditService auditService;
+
+    @MockitoBean
+    private com.incidentpilot.security.JwtService jwtService;
+
+    @MockitoBean
+    private com.incidentpilot.security.CustomUserDetailsService customUserDetailsService;
 
     @Test
     @DisplayName("POST /api/incidents — creates incident and returns 201")
@@ -70,6 +81,7 @@ class IncidentControllerTest {
         when(incidentService.createIncident(any(CreateIncidentRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/api/incidents")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -87,6 +99,7 @@ class IncidentControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/incidents")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -104,7 +117,7 @@ class IncidentControllerTest {
                         .status(IncidentStatus.INVESTIGATING).severity(Severity.P3_MEDIUM)
                         .serviceName("svc-b").createdAt(LocalDateTime.now()).build()
         );
-        when(incidentService.getAllIncidents()).thenReturn(responses);
+        when(incidentService.getFilteredIncidents(null, null, null)).thenReturn(responses);
 
         mockMvc.perform(get("/api/incidents"))
                 .andExpect(status().isOk())
@@ -136,6 +149,7 @@ class IncidentControllerTest {
         when(incidentService.updateStatus(eq(1L), eq(IncidentStatus.ACKNOWLEDGED))).thenReturn(response);
 
         mockMvc.perform(patch("/api/incidents/1/status")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -153,9 +167,46 @@ class IncidentControllerTest {
                 .thenThrow(new InvalidTransitionException(IncidentStatus.TRIGGERED, IncidentStatus.RESOLVED));
 
         mockMvc.perform(patch("/api/incidents/1/status")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Cannot transition from TRIGGERED to RESOLVED"));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents?status=TRIGGERED — filters by status")
+    void getIncidentsFilteredByStatus() throws Exception {
+        List<IncidentResponse> filtered = List.of(
+                IncidentResponse.builder().id(1L).title("Incident 1")
+                        .status(IncidentStatus.TRIGGERED).severity(Severity.P1_CRITICAL)
+                        .serviceName("svc").createdAt(LocalDateTime.now()).build()
+        );
+        when(incidentService.getFilteredIncidents(IncidentStatus.TRIGGERED, null, null)).thenReturn(filtered);
+
+        mockMvc.perform(get("/api/incidents").param("status", "TRIGGERED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].status").value("TRIGGERED"));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents/stats — returns stats summary")
+    void getStats() throws Exception {
+        IncidentStatsResponse stats = IncidentStatsResponse.builder()
+                .totalIncidents(5)
+                .activeIncidents(3)
+                .resolvedIncidents(2)
+                .averageResolutionMinutes(45.0)
+                .countBySeverity(Map.of("P1_CRITICAL", 2L, "P2_HIGH", 3L))
+                .countByStatus(Map.of("TRIGGERED", 1L, "RESOLVED", 2L))
+                .build();
+        when(incidentService.getStats()).thenReturn(stats);
+
+        mockMvc.perform(get("/api/incidents/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalIncidents").value(5))
+                .andExpect(jsonPath("$.activeIncidents").value(3))
+                .andExpect(jsonPath("$.averageResolutionMinutes").value(45.0));
     }
 }

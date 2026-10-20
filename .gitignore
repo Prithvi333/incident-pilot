@@ -4,6 +4,7 @@ target/
 *.jar
 *.war
 *.ear
+*.hprof
 
 # === IDE ===
 .idea/
@@ -17,30 +18,54 @@ target/
 *.swp
 *.swo
 *~
+.factorypath
+.springBeans
+.sts4-cache
 
 # === OS ===
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
 
 # === Environment / Secrets ===
 .env
 *.env
+.env.*
+!.env.example
 application-local.yml
+application-local.properties
 application-secret.yml
+application-secret.properties
 
 # === Logs ===
 *.log
 logs/
 
-# === Node (for future React frontend) ===
+# === Node / Frontend ===
 node_modules/
 dist/
+dist-ssr/
 build/
 .cache/
+.vite/
+*.local
+
+# === Testing artifacts ===
+test-results/
 
 # === Docker ===
 docker-compose.override.yml
 
 # === Spring Boot ===
 spring-shell.log
+
+# === GitHub auto-generated ===
+.github/modernize/
+
+# === Local docs (not pushed) ===
+docs/
+
+# === AI tooling (local config) ===
+.claude/
+CLAUDE.md
