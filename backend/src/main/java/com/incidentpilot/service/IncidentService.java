@@ -21,6 +21,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Core business logic for incident CRUD and status transitions.
+ *
+ * <p>On creation: saves the incident, embeds it in the vector store for future RAG searches,
+ * and logs an audit entry. On status change: validates the transition against the state machine,
+ * records a timeline event, and logs an audit entry. All mutations are transactional.
+ */
 @Service
 @RequiredArgsConstructor
 public class IncidentService {
@@ -65,29 +72,10 @@ public class IncidentService {
                 .toList();
     }
 
-    /**
-     * Filter incidents by optional status and/or severity.
-     * If both are null, returns all incidents (same as getAllIncidents).
-     *
-     * Why filter in the service layer instead of raw SQL?
-     * We use JPA repository methods so the query is type-safe.
-     * For more complex filtering, we'd upgrade to JPA Specifications.
-     */
     @Transactional(readOnly = true)
-    public List<IncidentResponse> getFilteredIncidents(IncidentStatus status, Severity severity) {
-        List<Incident> incidents;
-
-        if (status != null && severity != null) {
-            incidents = incidentRepository.findByStatusAndSeverity(status, severity);
-        } else if (status != null) {
-            incidents = incidentRepository.findByStatus(status);
-        } else if (severity != null) {
-            incidents = incidentRepository.findBySeverity(severity);
-        } else {
-            incidents = incidentRepository.findAll();
-        }
-
-        return incidents.stream()
+    public List<IncidentResponse> getFilteredIncidents(IncidentStatus status, Severity severity, String search) {
+        String trimmedSearch = (search != null && !search.isBlank()) ? search.trim() : null;
+        return incidentRepository.searchIncidents(status, severity, trimmedSearch).stream()
                 .map(IncidentResponse::from)
                 .toList();
     }

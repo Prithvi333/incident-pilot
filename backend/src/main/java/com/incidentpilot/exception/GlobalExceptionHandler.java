@@ -14,6 +14,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Centralized error handling — converts exceptions to consistent JSON responses.
+ *
+ * <p>The catch-all {@code handleUnexpected} method ensures no stack traces or internal details
+ * leak to the client. Specific handlers map domain exceptions to appropriate HTTP status codes.
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {

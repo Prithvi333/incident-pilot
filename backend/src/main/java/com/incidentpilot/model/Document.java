@@ -5,6 +5,13 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * Knowledge base document — a postmortem or runbook uploaded by an admin.
+ *
+ * <p>Lifecycle tracked by {@link DocumentStatus}:
+ * UPLOADED → PROCESSING (embedding) → INDEXED (searchable) or FAILED.
+ * The file itself lives in S3; this entity stores metadata and indexing state.
+ */
 @Entity
 @Table(name = "documents")
 @Getter

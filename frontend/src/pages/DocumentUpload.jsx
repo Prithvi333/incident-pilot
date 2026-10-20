@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { uploadDocument, getDocuments } from '../api/incidentApi';
+import api, { uploadDocument, getDocuments } from '../api/incidentApi';
 import {
   Upload,
   FileText,
@@ -106,10 +106,10 @@ export default function DocumentUpload() {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith('.txt') || file.name.endsWith('.md'))) {
+    if (file && (file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.pdf'))) {
       processFile(file);
     } else {
-      setError('Only .txt and .md files are supported.');
+      setError('Only .txt, .md, and .pdf files are supported.');
     }
   }
 
@@ -133,8 +133,9 @@ export default function DocumentUpload() {
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
+        onClick={() => !uploading && fileInputRef.current?.click()}
         className={clsx(
-          'relative bg-zinc-900 rounded-xl border-2 border-dashed p-8 mb-8 transition-all duration-200 text-center',
+          'relative bg-zinc-900 rounded-xl border-2 border-dashed p-8 mb-8 transition-all duration-200 text-center cursor-pointer',
           dragOver
             ? 'border-indigo-500/50 bg-indigo-500/[0.05]'
             : 'border-white/[0.08] hover:border-white/[0.15]'
@@ -143,7 +144,7 @@ export default function DocumentUpload() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".txt,.md,.text"
+          accept=".txt,.md,.text,.pdf,application/pdf"
           onChange={handleFileInput}
           disabled={uploading}
           className="hidden"
@@ -166,15 +167,9 @@ export default function DocumentUpload() {
           ) : (
             <>
               <p className="text-sm font-medium text-zinc-300 mb-1">
-                Drop a file here or{' '}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  browse
-                </button>
+                Click to upload or drop a file here
               </p>
-              <p className="text-xs text-zinc-600">Supports .txt and .md files</p>
+              <p className="text-xs text-zinc-600">Supports .txt, .md, and .pdf files</p>
             </>
           )}
         </div>
@@ -225,9 +220,12 @@ export default function DocumentUpload() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <a
-                    href={doc.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      api.get(`/documents/${doc.id}/download`)
+                        .then((res) => window.open(res.data.url, '_blank'));
+                    }}
                     className="text-sm font-medium text-zinc-200 hover:text-indigo-400 transition-colors inline-flex items-center gap-1.5"
                   >
                     {doc.originalFilename}

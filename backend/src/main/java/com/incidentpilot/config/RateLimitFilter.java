@@ -14,6 +14,13 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Token-bucket rate limiter for AI-heavy endpoints (similar-incident search, document upload).
+ *
+ * <p>Uses a two-tier strategy: 20 req/min burst + 100 req/hr sustained, keyed per
+ * authenticated user (falls back to IP for anonymous requests). Buckets are stored
+ * in-memory, so limits reset on restart — acceptable for a single-instance deployment.
+ */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 

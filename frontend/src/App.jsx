@@ -1,3 +1,9 @@
+/**
+ * Root component — sets up client-side routing and authentication.
+ *
+ * Public routes (login/register) are outside the ProtectedRoute wrapper.
+ * All other routes require a valid JWT and render inside the sidebar layout.
+ */
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';

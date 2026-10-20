@@ -1,3 +1,10 @@
+/**
+ * Centralized API client — all backend calls go through this Axios instance.
+ *
+ * The request interceptor attaches the JWT token from localStorage.
+ * The response interceptor auto-redirects to /login on 401 (expired/invalid token),
+ * but skips auth endpoints to avoid redirect loops during login/register.
+ */
 import axios from 'axios';
 
 const api = axios.create({
@@ -5,6 +12,7 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Attach JWT Bearer token to every outgoing request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -13,6 +21,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Global 401 handler: clear stale auth state and redirect to login
 api.interceptors.response.use(
   (response) => response,
   (error) => {

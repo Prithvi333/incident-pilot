@@ -7,6 +7,12 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * Response from the RAG (Retrieval-Augmented Generation) similarity search.
+ *
+ * <p>{@code aiAvailable} tells the frontend whether the LLM was reachable —
+ * if false, the resolution suggestion is a static fallback message.
+ */
 @Data
 @Builder
 @NoArgsConstructor

@@ -13,6 +13,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Public authentication endpoints — not protected by JWT.
+ *
+ * <p>Returns a JWT token on successful login or registration, which the
+ * frontend stores in localStorage and sends as a Bearer header on subsequent requests.
+ */
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor

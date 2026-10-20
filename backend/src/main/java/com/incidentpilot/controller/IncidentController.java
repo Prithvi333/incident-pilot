@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST API for incident CRUD, status transitions, AI-powered similarity search, and audit trail.
+ *
+ * <p>Access control is handled at the security layer: VIEWER can read, ENGINEER can create/update.
+ */
 @RestController
 @RequestMapping("/api/incidents")
 @RequiredArgsConstructor
@@ -46,10 +51,9 @@ public class IncidentController {
     @GetMapping
     public ResponseEntity<List<IncidentResponse>> getIncidents(
             @RequestParam(required = false) IncidentStatus status,
-            @RequestParam(required = false) Severity severity) {
-        List<IncidentResponse> incidents = (status == null && severity == null)
-                ? incidentService.getAllIncidents()
-                : incidentService.getFilteredIncidents(status, severity);
+            @RequestParam(required = false) Severity severity,
+            @RequestParam(required = false) String search) {
+        List<IncidentResponse> incidents = incidentService.getFilteredIncidents(status, severity, search);
         return ResponseEntity.ok(incidents);
     }
 
@@ -63,10 +67,11 @@ public class IncidentController {
         return ResponseEntity.ok(incidentService.getIncident(id));
     }
 
+    /** Uses AI (Bedrock) + vector search (Qdrant) to find similar past incidents and suggest resolutions. */
     @GetMapping("/{id}/similar")
     public ResponseEntity<RagResponse> getSimilarIncidents(@PathVariable Long id) {
         IncidentResponse incident = incidentService.getIncident(id);
-        RagResponse response = ragService.findSimilarIncidents(incident.getTitle(), incident.getDescription());
+        RagResponse response = ragService.findSimilarIncidents(id, incident.getTitle(), incident.getDescription());
         return ResponseEntity.ok(response);
     }
 

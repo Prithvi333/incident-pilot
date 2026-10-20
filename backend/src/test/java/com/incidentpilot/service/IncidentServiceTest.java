@@ -170,9 +170,9 @@ class IncidentServiceTest {
     @DisplayName("Filter incidents by status returns matching incidents")
     void getFilteredByStatus() {
         List<Incident> triggered = List.of(buildIncident(1L, IncidentStatus.TRIGGERED));
-        when(incidentRepository.findByStatus(IncidentStatus.TRIGGERED)).thenReturn(triggered);
+        when(incidentRepository.searchIncidents(IncidentStatus.TRIGGERED, null, null)).thenReturn(triggered);
 
-        List<IncidentResponse> results = incidentService.getFilteredIncidents(IncidentStatus.TRIGGERED, null);
+        List<IncidentResponse> results = incidentService.getFilteredIncidents(IncidentStatus.TRIGGERED, null, null);
 
         assertThat(results).hasSize(1);
     }
@@ -181,9 +181,9 @@ class IncidentServiceTest {
     @DisplayName("Filter incidents by severity returns matching incidents")
     void getFilteredBySeverity() {
         List<Incident> p1s = List.of(buildIncident(1L, IncidentStatus.TRIGGERED));
-        when(incidentRepository.findBySeverity(Severity.P2_HIGH)).thenReturn(p1s);
+        when(incidentRepository.searchIncidents(null, Severity.P2_HIGH, null)).thenReturn(p1s);
 
-        List<IncidentResponse> results = incidentService.getFilteredIncidents(null, Severity.P2_HIGH);
+        List<IncidentResponse> results = incidentService.getFilteredIncidents(null, Severity.P2_HIGH, null);
 
         assertThat(results).hasSize(1);
     }
@@ -191,13 +191,24 @@ class IncidentServiceTest {
     @Test
     @DisplayName("Filter by both status and severity")
     void getFilteredByStatusAndSeverity() {
-        when(incidentRepository.findByStatusAndSeverity(IncidentStatus.TRIGGERED, Severity.P1_CRITICAL))
+        when(incidentRepository.searchIncidents(IncidentStatus.TRIGGERED, Severity.P1_CRITICAL, null))
                 .thenReturn(List.of());
 
         List<IncidentResponse> results = incidentService.getFilteredIncidents(
-                IncidentStatus.TRIGGERED, Severity.P1_CRITICAL);
+                IncidentStatus.TRIGGERED, Severity.P1_CRITICAL, null);
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Search incidents by text filters on title and service")
+    void getFilteredBySearch() {
+        List<Incident> matched = List.of(buildIncident(1L, IncidentStatus.TRIGGERED));
+        when(incidentRepository.searchIncidents(null, null, "payment")).thenReturn(matched);
+
+        List<IncidentResponse> results = incidentService.getFilteredIncidents(null, null, "payment");
+
+        assertThat(results).hasSize(1);
     }
 
     @Test

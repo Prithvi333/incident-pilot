@@ -5,6 +5,13 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * Application user with role-based access control.
+ *
+ * <p>Password is stored as a BCrypt hash. Role determines API access level
+ * (ADMIN &gt; ENGINEER &gt; VIEWER). Used by {@link com.incidentpilot.security.CustomUserDetailsService}
+ * to build the Spring Security principal.
+ */
 @Entity
 @Table(name = "users")
 @Getter

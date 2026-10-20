@@ -1,3 +1,10 @@
+/**
+ * AI Insights panel — fetches similar incidents and resolution suggestions from the RAG API.
+ *
+ * Handles three states: loading skeleton, error (AI offline), and results with
+ * optional AI-generated resolution suggestion + vector similarity matches.
+ * Score thresholds (80%+ green, 60%+ amber) help users quickly gauge relevance.
+ */
 import { useEffect, useState } from 'react';
 import { getSimilarIncidents } from '../api/incidentApi';
 import { Sparkles, WifiOff, Lightbulb, FileText } from 'lucide-react';

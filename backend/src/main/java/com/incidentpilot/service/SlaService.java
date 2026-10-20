@@ -15,6 +15,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Periodically checks open incidents for SLA breaches and logs violations to the audit trail.
+ *
+ * <p>SLA thresholds are severity-dependent: P1 gets 15 min to acknowledge / 4 hrs to resolve,
+ * P4 gets 8 hrs / 7 days. The scheduler runs every 60 seconds (configurable via
+ * {@code sla.check-interval-ms}). Breaches are logged as audit events, not status changes.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -23,6 +30,7 @@ public class SlaService {
     private final IncidentRepository incidentRepository;
     private final AuditService auditService;
 
+    /** Max time from creation to first acknowledgment, by severity. */
     private static final Map<Severity, Duration> ACKNOWLEDGE_SLA = Map.of(
             Severity.P1_CRITICAL, Duration.ofMinutes(15),
             Severity.P2_HIGH, Duration.ofMinutes(30),
@@ -30,6 +38,7 @@ public class SlaService {
             Severity.P4_LOW, Duration.ofHours(8)
     );
 
+    /** Max time from creation to resolution, by severity. */
     private static final Map<Severity, Duration> RESOLVE_SLA = Map.of(
             Severity.P1_CRITICAL, Duration.ofHours(4),
             Severity.P2_HIGH, Duration.ofHours(12),

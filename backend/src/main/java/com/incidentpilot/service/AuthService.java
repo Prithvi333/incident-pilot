@@ -15,6 +15,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Handles user registration and login, issuing JWT tokens on success.
+ *
+ * <p>New users are assigned the ENGINEER role by default.
+ * Password hashing uses BCrypt via Spring Security's {@link PasswordEncoder}.
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -48,6 +54,10 @@ public class AuthService {
                 .build();
     }
 
+    /**
+     * Delegates credential verification to Spring Security's AuthenticationManager.
+     * If credentials are wrong, it throws BadCredentialsException — caught by GlobalExceptionHandler.
+     */
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())

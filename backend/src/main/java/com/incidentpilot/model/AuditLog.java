@@ -5,6 +5,12 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * Immutable audit record for tracking who changed what and when.
+ *
+ * <p>Used for incident lifecycle events (CREATE, STATUS_CHANGE) and SLA breach detection.
+ * Records are append-only — never updated or deleted — to maintain a reliable audit trail.
+ */
 @Entity
 @Table(name = "audit_logs")
 @Getter

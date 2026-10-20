@@ -8,6 +8,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * CORS configuration for the React dev server.
+ *
+ * <p>Allows the Vite frontend (ports 5173–5175) to call backend APIs.
+ * In production, a reverse proxy typically handles CORS, so this
+ * config only matters during local development.
+ */
 @Configuration
 public class WebConfig {
 

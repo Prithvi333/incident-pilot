@@ -117,7 +117,7 @@ class IncidentControllerTest {
                         .status(IncidentStatus.INVESTIGATING).severity(Severity.P3_MEDIUM)
                         .serviceName("svc-b").createdAt(LocalDateTime.now()).build()
         );
-        when(incidentService.getAllIncidents()).thenReturn(responses);
+        when(incidentService.getFilteredIncidents(null, null, null)).thenReturn(responses);
 
         mockMvc.perform(get("/api/incidents"))
                 .andExpect(status().isOk())
@@ -182,7 +182,7 @@ class IncidentControllerTest {
                         .status(IncidentStatus.TRIGGERED).severity(Severity.P1_CRITICAL)
                         .serviceName("svc").createdAt(LocalDateTime.now()).build()
         );
-        when(incidentService.getFilteredIncidents(IncidentStatus.TRIGGERED, null)).thenReturn(filtered);
+        when(incidentService.getFilteredIncidents(IncidentStatus.TRIGGERED, null, null)).thenReturn(filtered);
 
         mockMvc.perform(get("/api/incidents").param("status", "TRIGGERED"))
                 .andExpect(status().isOk())

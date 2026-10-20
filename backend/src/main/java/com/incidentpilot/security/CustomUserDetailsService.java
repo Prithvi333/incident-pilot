@@ -11,6 +11,13 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Loads user details from the database for Spring Security authentication.
+ *
+ * <p>Maps the application's {@link com.incidentpilot.model.Role} enum to Spring Security's
+ * authority format by prefixing with {@code ROLE_} (e.g. {@code ROLE_ENGINEER}),
+ * which is required for {@code hasRole()} checks in the security config.
+ */
 @Service
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {

@@ -12,6 +12,12 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.function.Function;
 
+/**
+ * JWT token generation and validation using HMAC-SHA256.
+ *
+ * <p>Tokens carry the username (subject) and role (custom claim).
+ * The signing key is Base64-encoded in config to avoid encoding issues.
+ */
 @Service
 public class JwtService {
 

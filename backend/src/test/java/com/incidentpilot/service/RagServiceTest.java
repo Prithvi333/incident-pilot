@@ -71,15 +71,17 @@ class RagServiceTest {
     }
 
     @Test
-    @DisplayName("findSimilarIncidents returns matches and AI suggestion")
+    @DisplayName("findSimilarIncidents returns matches and AI suggestion, excluding self")
     void findSimilarIncidents() {
-        Document doc = new Document("Similar incident: payment timeout resolved by increasing pool size",
+        Document selfDoc = new Document("Current incident: payment timeout",
+                Map.of("source", "incident:1", "type", "incident"));
+        Document otherDoc = new Document("Similar incident: payment timeout resolved by increasing pool size",
                 Map.of("source", "incident:5", "type", "incident"));
 
-        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(doc));
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(selfDoc, otherDoc));
         when(chatModel.call(anyString())).thenReturn("Increase connection pool size and add retry logic.");
 
-        RagResponse response = ragService.findSimilarIncidents("Payment timeout", "Stripe returns 504");
+        RagResponse response = ragService.findSimilarIncidents(1L, "Payment timeout", "Stripe returns 504");
 
         assertThat(response.isAiAvailable()).isTrue();
         assertThat(response.getSimilarMatches()).hasSize(1);
@@ -88,21 +90,23 @@ class RagServiceTest {
     }
 
     @Test
-    @DisplayName("findSimilarIncidents returns no-match message when vector store is empty")
+    @DisplayName("findSimilarIncidents calls AI even when no similar matches found")
     void findSimilarIncidentsEmpty() {
         when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
+        when(chatModel.call(anyString())).thenReturn("Check logs and restart the service.");
 
-        RagResponse response = ragService.findSimilarIncidents("Brand new issue", null);
+        RagResponse response = ragService.findSimilarIncidents(2L, "Brand new issue", null);
 
         assertThat(response.isAiAvailable()).isTrue();
         assertThat(response.getSimilarMatches()).isEmpty();
-        assertThat(response.getResolutionSuggestion()).contains("new type of incident");
+        assertThat(response.getResolutionSuggestion()).contains("restart");
+        verify(chatModel).call(anyString());
     }
 
     @Test
     @DisplayName("Fallback returns unavailable response")
     void findSimilarFallback() {
-        RagResponse response = ragService.findSimilarFallback("title", "desc", new RuntimeException("AI down"));
+        RagResponse response = ragService.findSimilarFallback(1L, "title", "desc", new RuntimeException("AI down"));
 
         assertThat(response.isAiAvailable()).isFalse();
         assertThat(response.getSimilarMatches()).isEmpty();

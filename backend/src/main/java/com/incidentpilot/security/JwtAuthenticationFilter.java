@@ -14,6 +14,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Extracts and validates the JWT from the {@code Authorization: Bearer ...} header.
+ *
+ * <p>Runs once per request before Spring Security's authorization checks.
+ * If the token is valid, sets the authenticated principal in the
+ * {@link org.springframework.security.core.context.SecurityContext}.
+ * Invalid or missing tokens are silently ignored — the request continues
+ * as unauthenticated, and Spring Security decides whether to allow or deny it.
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {

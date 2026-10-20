@@ -1,3 +1,9 @@
+/**
+ * Authentication context — stores JWT token and user info in React state + localStorage.
+ *
+ * localStorage provides persistence across page refreshes; React state drives re-renders.
+ * On mount, rehydrates from localStorage so the user stays logged in after a refresh.
+ */
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);

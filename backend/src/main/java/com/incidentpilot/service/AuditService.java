@@ -12,6 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Immutable audit trail for incident lifecycle events (creates, status changes, SLA breaches).
+ *
+ * <p>Records who did what, when, and what changed. The current user is resolved from
+ * the Spring Security context; background jobs (SLA checks) log as "system".
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -19,6 +25,10 @@ public class AuditService {
 
     private final AuditLogRepository auditLogRepository;
 
+    /**
+     * Writes an audit entry in a NEW transaction so the log is persisted even if the
+     * outer transaction rolls back (e.g. if something fails after the audit call).
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(String action, String entityType, Long entityId, String oldValue, String newValue) {
         String user = resolveCurrentUser();

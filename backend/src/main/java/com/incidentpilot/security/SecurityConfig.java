@@ -17,6 +17,18 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Central Spring Security configuration.
+ *
+ * <p>Key decisions:
+ * <ul>
+ *   <li>Stateless sessions — all auth via JWT, no server-side session store</li>
+ *   <li>CSRF disabled — safe because we use Bearer tokens, not cookies</li>
+ *   <li>Role-based access: VIEWER can read, ENGINEER can create/update, ADMIN can upload docs</li>
+ *   <li>JWT filter runs before {@code UsernamePasswordAuthenticationFilter} to set
+ *       the SecurityContext before Spring Security checks permissions</li>
+ * </ul>
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -38,7 +50,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/incidents/**").hasAnyRole("ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/incidents/**").hasAnyRole("ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/documents/**").hasAnyRole("VIEWER", "ENGINEER", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/documents/**").hasAnyRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/documents/**").hasAnyRole("ENGINEER", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

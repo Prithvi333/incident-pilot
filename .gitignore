@@ -32,6 +32,7 @@ ehthumbs.db
 .env
 *.env
 .env.*
+!.env.example
 application-local.yml
 application-local.properties
 application-secret.yml
@@ -50,11 +51,8 @@ build/
 .vite/
 *.local
 
-# === Playwright / Testing ===
+# === Testing artifacts ===
 test-results/
-playwright-report/
-blob-report/
-playwright/.cache/
 
 # === Docker ===
 docker-compose.override.yml
@@ -64,6 +62,9 @@ spring-shell.log
 
 # === GitHub auto-generated ===
 .github/modernize/
+
+# === Local docs (not pushed) ===
+docs/
 
 # === AI tooling (local config) ===
 .claude/
