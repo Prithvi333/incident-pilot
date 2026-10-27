@@ -28,7 +28,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
       {/* Background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/[0.07] rounded-full blur-[120px]" />
@@ -45,7 +45,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-zinc-900/80 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-8 shadow-2xl shadow-black/40">
+        <div className="bg-zinc-800/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-8 shadow-2xl shadow-black/40">
           <div className="text-center mb-6">
             <h1 className="text-lg font-semibold text-zinc-100">Welcome back</h1>
             <p className="text-sm text-zinc-500 mt-1">Sign in to your account</p>

@@ -30,7 +30,7 @@ export default function SimilarIncidents({ incidentId }) {
 
   if (loading) {
     return (
-      <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+      <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
         <div className="flex items-center gap-2 mb-4">
           <div className="skeleton w-5 h-5 rounded" />
           <div className="skeleton w-48 h-4 rounded" />
@@ -46,7 +46,7 @@ export default function SimilarIncidents({ incidentId }) {
 
   if (!data) {
     return (
-      <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+      <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
         <div className="flex items-center gap-2 text-zinc-500">
           <WifiOff size={16} />
           <span className="text-sm">Could not load AI suggestions.</span>
@@ -56,7 +56,7 @@ export default function SimilarIncidents({ incidentId }) {
   }
 
   return (
-    <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5 animate-fade-in">
+    <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-violet-500/10">
@@ -65,7 +65,7 @@ export default function SimilarIncidents({ incidentId }) {
           <h3 className="text-sm font-semibold text-zinc-200">AI Insights</h3>
         </div>
         {!data.aiAvailable && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 ring-1 ring-white/[0.06]">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-700/50 text-zinc-400 ring-1 ring-white/[0.06]">
             <WifiOff size={12} />
             AI Offline
           </span>
@@ -106,7 +106,7 @@ export default function SimilarIncidents({ incidentId }) {
                     ? 'text-emerald-400 bg-emerald-500/10'
                     : match.score >= 0.6
                       ? 'text-amber-400 bg-amber-500/10'
-                      : 'text-zinc-400 bg-zinc-800'
+                      : 'text-zinc-400 bg-zinc-700/50'
                 )}>
                   {(match.score * 100).toFixed(0)}% match
                 </span>

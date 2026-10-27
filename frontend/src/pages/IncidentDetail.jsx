@@ -203,7 +203,7 @@ export default function IncidentDetail() {
         <div className="lg:col-span-2 space-y-6">
           {/* Transition action */}
           {nextStatus && (
-            <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+            <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Next Step</p>
@@ -234,13 +234,13 @@ export default function IncidentDetail() {
           <SimilarIncidents incidentId={id} />
 
           {/* Timeline */}
-          <div className="bg-zinc-900 rounded-xl border border-white/[0.06] overflow-hidden">
+          <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.06]">
               <h3 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
                 <Clock size={15} className="text-zinc-500" />
                 Activity Timeline
                 {timeline.length > 0 && (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-zinc-700/50 text-zinc-400">
                     {timeline.length}
                   </span>
                 )}
@@ -253,7 +253,7 @@ export default function IncidentDetail() {
                 <select
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value)}
-                  className="appearance-none bg-zinc-800 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-medium text-zinc-300 focus-ring cursor-pointer"
+                  className="appearance-none bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-medium text-zinc-300 focus-ring cursor-pointer"
                 >
                   <option value="COMMENT">Comment</option>
                   <option value="ACTION">Action</option>
@@ -263,7 +263,7 @@ export default function IncidentDetail() {
                   placeholder="Your name"
                   value={author}
                   onChange={(e) => setAuthor(e.target.value)}
-                  className="bg-zinc-800 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus-ring w-36"
+                  className="bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus-ring w-36"
                 />
               </div>
               <div className="flex gap-2">
@@ -272,7 +272,7 @@ export default function IncidentDetail() {
                   placeholder="What happened? What did you do?"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  className="flex-1 bg-zinc-800 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus-ring"
+                  className="flex-1 bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus-ring"
                 />
                 <button
                   type="submit"
@@ -326,7 +326,7 @@ export default function IncidentDetail() {
 
         {/* Right column - Details sidebar */}
         <div className="space-y-6">
-          <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+          <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-4">
               Incident Details
             </h3>
@@ -361,7 +361,7 @@ export default function IncidentDetail() {
           </div>
 
           {/* Quick stats */}
-          <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+          <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-4">
               Quick Info
             </h3>

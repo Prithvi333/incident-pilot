@@ -51,7 +51,7 @@ function FilterDropdown({ value, onChange, options, placeholder, icon: Icon }) {
           'flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all cursor-pointer',
           selected
             ? 'border-indigo-500/30 bg-indigo-500/[0.05]'
-            : 'border-white/[0.08] bg-zinc-900 hover:border-white/[0.12]'
+            : 'border-white/[0.08] bg-zinc-800/50 hover:border-white/[0.12]'
         )}
       >
         {Icon && <Icon size={14} className="text-zinc-500" />}
@@ -76,7 +76,7 @@ function FilterDropdown({ value, onChange, options, placeholder, icon: Icon }) {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-52 bg-zinc-900 border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden animate-fade-in">
+        <div className="absolute top-full left-0 mt-1.5 w-52 bg-zinc-800 border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden animate-slide-up">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -104,9 +104,9 @@ function FilterDropdown({ value, onChange, options, placeholder, icon: Icon }) {
 
 function TableSkeleton() {
   return (
-    <div className="divide-y divide-white/[0.04]">
+    <div className="divide-y divide-white/[0.04] animate-fade-in">
       {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} className="flex items-center gap-4 px-5 py-4">
+        <div key={i} className="flex items-center gap-4 px-5 py-4" style={{ opacity: 1 - i * 0.12 }}>
           <div className="skeleton w-8 h-4 rounded" />
           <div className="skeleton flex-1 h-4 rounded" />
           <div className="skeleton w-16 h-6 rounded-md" />
@@ -191,7 +191,7 @@ export default function IncidentList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by title or service..."
-            className="w-full bg-zinc-900 border border-white/[0.08] rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus-ring transition-colors hover:border-white/[0.12]"
+            className="w-full bg-zinc-800/50 border border-white/[0.08] rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus-ring transition-colors hover:border-white/[0.12]"
           />
         </div>
         <div className="flex gap-2">
@@ -212,7 +212,7 @@ export default function IncidentList() {
       </div>
 
       {/* Table */}
-      <div className="bg-zinc-900 rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] overflow-hidden">
         {/* Table header */}
         <div className="hidden sm:grid grid-cols-[3rem_1fr_5rem_7rem_7rem_6rem] gap-4 px-5 py-3 border-b border-white/[0.06] text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
           <span>ID</span>
@@ -226,8 +226,8 @@ export default function IncidentList() {
         {loading ? (
           <TableSkeleton />
         ) : incidents.length === 0 ? (
-          <div className="flex flex-col items-center py-16 text-center">
-            <div className="p-3 rounded-full bg-zinc-800 mb-3">
+          <div className="flex flex-col items-center py-16 text-center animate-fade-in">
+            <div className="p-3 rounded-full bg-zinc-700/50 mb-3">
               {search || statusFilter || severityFilter ? (
                 <Search size={24} className="text-zinc-500" />
               ) : (
@@ -247,11 +247,12 @@ export default function IncidentList() {
           </div>
         ) : (
           <div className="divide-y divide-white/[0.04]">
-            {incidents.map((incident) => (
+            {incidents.map((incident, idx) => (
               <Link
                 key={incident.id}
                 to={`/incidents/${incident.id}`}
-                className="group grid grid-cols-1 sm:grid-cols-[3rem_1fr_5rem_7rem_7rem_6rem] gap-2 sm:gap-4 items-center px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
+                className="group grid grid-cols-1 sm:grid-cols-[3rem_1fr_5rem_7rem_7rem_6rem] gap-2 sm:gap-4 items-center px-5 py-3.5 hover:bg-white/[0.02] transition-colors animate-list-in"
+                style={{ animationDelay: `${Math.min(idx * 30, 300)}ms` }}
               >
                 <span className="text-xs text-zinc-600 font-mono">#{incident.id}</span>
                 <div className="flex items-center gap-2 min-w-0">

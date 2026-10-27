@@ -7,6 +7,7 @@
   --animate-slide-up: slide-up 0.4s ease-out both;
   --animate-shimmer: shimmer 2s infinite linear;
   --animate-pulse-dot: pulse-dot 2s infinite;
+  --animate-list-in: list-in 0.3s ease-out both;
 }
 
 @keyframes fade-in {
@@ -29,13 +30,18 @@
   50% { opacity: 0.4; }
 }
 
+@keyframes list-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Base dark theme */
 html {
   color-scheme: dark;
 }
 
 body {
-  background: #09090b;
+  background: #111113;
   color: #fafafa;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   -webkit-font-smoothing: antialiased;
@@ -45,12 +51,12 @@ body {
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+::-webkit-scrollbar-thumb { background: #2e2e33; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #44444b; }
 
 /* Form element overrides for dark mode */
 select option {
-  background: #18181b;
+  background: #1c1c20;
   color: #fafafa;
 }
 
@@ -63,12 +69,12 @@ input::placeholder, textarea::placeholder {
   outline: none;
 }
 .focus-ring:focus-visible {
-  box-shadow: 0 0 0 2px #09090b, 0 0 0 4px #6366f1;
+  box-shadow: 0 0 0 2px #111113, 0 0 0 4px #6366f1;
 }
 
 /* Skeleton loading gradient */
 .skeleton {
-  background: linear-gradient(90deg, #18181b 0%, #27272a 50%, #18181b 100%);
+  background: linear-gradient(90deg, #1c1c20 0%, #2a2a2f 50%, #1c1c20 100%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite linear;
 }
@@ -78,6 +84,6 @@ input::placeholder, textarea::placeholder {
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 .card-glow:hover {
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.1), 0 4px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.1), 0 4px 24px rgba(0, 0, 0, 0.25);
   border-color: rgba(99, 102, 241, 0.15);
 }

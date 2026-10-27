@@ -1,0 +1,16 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: incidentpilot-frontend
+    ports:
+      - "80:80"
+    networks:
+      - incidentpilot-network
+    restart: unless-stopped
+
+networks:
+  incidentpilot-network:
+    external: true
+    name: incidentpilot-network

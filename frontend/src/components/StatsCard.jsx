@@ -2,7 +2,7 @@ import clsx from 'clsx';
 
 export default function StatsCard({ title, value, subtitle, icon: Icon, iconColor = 'text-zinc-500', trend }) {
   return (
-    <div className="group bg-zinc-900 rounded-xl border border-white/[0.06] p-5 card-glow animate-fade-in">
+    <div className="group bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5 card-glow animate-fade-in">
       <div className="flex items-start justify-between mb-3">
         <p className="text-[12px] font-medium uppercase tracking-wider text-zinc-500">
           {title}

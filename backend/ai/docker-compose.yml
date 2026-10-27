@@ -1,0 +1,72 @@
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: incidentpilot-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - incidentpilot-network
+    restart: unless-stopped
+
+  # Pull models automatically when Ollama is available
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: incidentpilot-ollama-init
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:1.7b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text:latest}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until ollama list >/dev/null 2>&1; do
+          echo "Waiting for Ollama..."
+          sleep 3
+        done
+        echo "Pulling chat model..."
+        ollama pull "$${OLLAMA_CHAT_MODEL}" &&
+        echo "Pulling embedding model..." &&
+        ollama pull "$${OLLAMA_EMBEDDING_MODEL}"
+    networks:
+      - incidentpilot-network
+    depends_on:
+      - ollama
+    restart: "no"
+
+  ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: incidentpilot-ai
+    ports:
+      - "${AI_PORT:-8081}:8081"
+    environment:
+      # Qdrant
+      QDRANT_HOST: ${QDRANT_HOST:-qdrant}
+      QDRANT_PORT: ${QDRANT_PORT:-6334}
+
+      # Ollama
+      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:1.7b}
+      SPRING_AI_OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text:latest}
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+
+    networks:
+      - incidentpilot-network
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+networks:
+  incidentpilot-network:
+    external: true
+    name: incidentpilot-network
+
+volumes:
+  ollama_data:

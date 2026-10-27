@@ -36,7 +36,7 @@ const SEVERITY_COLORS = {
 function ChartTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-zinc-800 border border-white/[0.08] rounded-lg px-3 py-2 shadow-xl">
+    <div className="bg-zinc-700/80 border border-white/[0.08] rounded-lg px-3 py-2 shadow-xl">
       <p className="text-xs text-zinc-300 font-medium">{payload[0].name}</p>
       <p className="text-sm font-bold text-zinc-100">{payload[0].value}</p>
     </div>
@@ -175,7 +175,7 @@ export default function Dashboard() {
       {incidents.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
           {/* Status Distribution */}
-          <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+          <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
             <h3 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
               <Activity size={15} className="text-zinc-500" />
               Status Distribution
@@ -216,14 +216,14 @@ export default function Dashboard() {
           </div>
 
           {/* Severity Distribution */}
-          <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-5">
+          <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
             <h3 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
               <Shield size={15} className="text-zinc-500" />
               Severity Breakdown
             </h3>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={severityData} barSize={32}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
@@ -239,7 +239,7 @@ export default function Dashboard() {
       )}
 
       {/* Active Incidents */}
-      <div className="bg-zinc-900 rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <h3 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
             <AlertTriangle size={15} className="text-rose-400" />

@@ -27,7 +27,7 @@ export default function App() {
             path="/*"
             element={
               <ProtectedRoute>
-                <div className="flex h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
+                <div className="flex h-screen bg-zinc-900 text-zinc-100 overflow-hidden">
                   <Sidebar />
                   <main className="flex-1 overflow-y-auto">
                     <div className="max-w-[1400px] mx-auto px-6 lg:px-10 py-8">

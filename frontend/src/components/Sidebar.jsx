@@ -136,7 +136,7 @@ export default function Sidebar() {
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-zinc-900 border border-white/[0.06] text-zinc-400 hover:text-zinc-200 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-zinc-800/50 border border-white/[0.06] text-zinc-400 hover:text-zinc-200 transition-colors"
       >
         <Menu size={20} />
       </button>
@@ -152,7 +152,7 @@ export default function Sidebar() {
       {/* Mobile sidebar */}
       <aside
         className={clsx(
-          'lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-zinc-950 border-r border-white/[0.06] transition-transform duration-300',
+          'lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-zinc-900 border-r border-white/[0.06] transition-transform duration-300',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -166,7 +166,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:flex-shrink-0 bg-zinc-950 border-r border-white/[0.06] h-screen sticky top-0">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:flex-shrink-0 bg-zinc-900 border-r border-white/[0.06] h-screen sticky top-0">
         {sidebarContent}
       </aside>
     </>

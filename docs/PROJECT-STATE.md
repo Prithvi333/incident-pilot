@@ -41,7 +41,7 @@
 - Axios interceptor adds Bearer token, 401 redirects to login
 
 ### Milestone 5: AI-Powered Similar Incident Search (RAG) ✅
-- Spring AI 1.0.0 with Ollama (local LLM + embeddings)
+- Spring AI 1.0.0 with AWS Bedrock (Claude Haiku 4.5 via Converse API)
 - Qdrant vector store for semantic similarity search
 - Auto-embed incidents on creation into vector store
 - Document upload API (postmortems/runbooks) with chunking + embedding

@@ -84,7 +84,7 @@ export default function CreateIncident() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-6 space-y-5">
+        <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-6 space-y-5">
           {/* Title */}
           <div>
             <label className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-zinc-400 mb-2">
@@ -155,7 +155,7 @@ export default function CreateIncident() {
           </div>
         </div>
 
-        <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-6 space-y-5">
+        <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-6 space-y-5">
           {/* Service */}
           <div>
             <label className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-zinc-400 mb-2">
