@@ -1,14 +1,16 @@
 package com.incidentpilot.controller;
 
-import com.incidentpilot.client.AiServiceClient;
+import com.incidentpilot.dto.AssignIncidentRequest;
 import com.incidentpilot.dto.AuditLogResponse;
 import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
 import com.incidentpilot.dto.IncidentStatsResponse;
 import com.incidentpilot.dto.RagResponse;
+import com.incidentpilot.dto.UpdateIncidentRequest;
 import com.incidentpilot.dto.UpdateStatusRequest;
 import com.incidentpilot.model.IncidentStatus;
 import com.incidentpilot.model.Severity;
+import com.incidentpilot.security.CurrentUser;
 import com.incidentpilot.service.AuditService;
 import com.incidentpilot.service.IncidentService;
 import jakarta.validation.Valid;
@@ -20,9 +22,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * REST API for incident CRUD, status transitions, AI-powered similarity search, and audit trail.
+ * REST API for incident CRUD, assignment, status transitions, AI-powered similarity search and audit trail.
  *
- * <p>Access control is handled at the security layer: VIEWER can read, ENGINEER can create/update.
+ * <p>Access control is handled at the security layer: VIEWER can read, ENGINEER/ADMIN can create and
+ * modify. Every endpoint only ever sees the caller's own organization.
  */
 @RestController
 @RequestMapping("/api/incidents")
@@ -40,7 +43,7 @@ public class IncidentController {
     }
 
     /**
-     * List incidents with optional filters.
+     * List incidents with optional filters, newest first.
      * Examples:
      *   GET /api/incidents                         → all
      *   GET /api/incidents?status=TRIGGERED         → only triggered
@@ -52,8 +55,7 @@ public class IncidentController {
             @RequestParam(required = false) IncidentStatus status,
             @RequestParam(required = false) Severity severity,
             @RequestParam(required = false) String search) {
-        List<IncidentResponse> incidents = incidentService.getFilteredIncidents(status, severity, search);
-        return ResponseEntity.ok(incidents);
+        return ResponseEntity.ok(incidentService.getFilteredIncidents(status, severity, search));
     }
 
     @GetMapping("/stats")
@@ -66,12 +68,18 @@ public class IncidentController {
         return ResponseEntity.ok(incidentService.getIncident(id));
     }
 
-    /** Uses AI (Bedrock) + vector search (Qdrant) to find similar past incidents and suggest resolutions. */
+    /** Uses the AI service (LLM + vector search) to find similar past incidents and suggest resolutions. */
     @GetMapping("/{id}/similar")
     public ResponseEntity<RagResponse> getSimilarIncidents(@PathVariable Long id) {
-        IncidentResponse incident = incidentService.getIncident(id);
-        RagResponse response = incidentService.findSimilarIncidents(id, incident.getTitle(), incident.getDescription());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(incidentService.findSimilarIncidents(id));
+    }
+
+    /** Partial update of title, description, severity and service name. */
+    @PatchMapping("/{id}")
+    public ResponseEntity<IncidentResponse> updateIncident(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateIncidentRequest request) {
+        return ResponseEntity.ok(incidentService.updateIncident(id, request));
     }
 
     /**
@@ -82,13 +90,23 @@ public class IncidentController {
     public ResponseEntity<IncidentResponse> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request) {
-        IncidentResponse response = incidentService.updateStatus(id, request.getStatus());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(incidentService.updateStatus(id, request.getStatus()));
+    }
+
+    /** Assigns the incident to a member of the caller's organization (blank assignee = unassign). */
+    @PatchMapping("/{id}/assignee")
+    public ResponseEntity<IncidentResponse> assign(
+            @PathVariable Long id,
+            @Valid @RequestBody AssignIncidentRequest request) {
+        return ResponseEntity.ok(incidentService.assign(id, request.getAssignee()));
     }
 
     @GetMapping("/{id}/audit")
     public ResponseEntity<List<AuditLogResponse>> getAuditLog(@PathVariable Long id) {
-        List<AuditLogResponse> logs = auditService.getLogsForEntity("Incident", id).stream()
+        // Tenant check first: a foreign incident id yields 404 before any audit data is read.
+        incidentService.getIncident(id);
+        Long orgId = CurrentUser.require().getOrganizationId();
+        List<AuditLogResponse> logs = auditService.getLogsForEntity("Incident", id, orgId).stream()
                 .map(AuditLogResponse::from)
                 .toList();
         return ResponseEntity.ok(logs);

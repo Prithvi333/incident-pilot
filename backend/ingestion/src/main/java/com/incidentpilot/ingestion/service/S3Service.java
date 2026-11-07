@@ -50,8 +50,13 @@ public class S3Service {
                 .build();
     }
 
-    public String upload(MultipartFile file) throws IOException {
-        String key = "documents/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+    /**
+     * Stores the file under an organization-specific prefix. The client-supplied filename is
+     * reduced to a safe base name so it cannot inject path segments into the object key.
+     */
+    public String upload(MultipartFile file, Long organizationId) throws IOException {
+        String key = "orgs/" + organizationId + "/documents/" + UUID.randomUUID() + "_"
+                + sanitizeFilename(file.getOriginalFilename());
 
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
@@ -79,6 +84,13 @@ public class S3Service {
                         .build())
                 .build();
         return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    private String sanitizeFilename(String filename) {
+        String name = filename == null ? "file" : filename;
+        name = name.substring(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1);
+        name = name.replaceAll("[^A-Za-z0-9._-]", "_");
+        return name.isBlank() ? "file" : name;
     }
 
     private String extractKeyFromUrl(String fileUrl) {

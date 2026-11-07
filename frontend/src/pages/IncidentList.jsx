@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getIncidents } from '../api/incidentApi';
+import { useIncidentEvents, useResync } from '../context/RealtimeContext';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
 import {
@@ -48,7 +49,7 @@ function FilterDropdown({ value, onChange, options, placeholder, icon: Icon }) {
       <button
         onClick={() => setOpen(!open)}
         className={clsx(
-          'flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all cursor-pointer',
+          'flex items-center gap-2 px-3 py-2.5 min-h-11 sm:min-h-0 rounded-lg border text-sm transition-all cursor-pointer',
           selected
             ? 'border-indigo-500/30 bg-indigo-500/[0.05]'
             : 'border-white/[0.08] bg-zinc-800/50 hover:border-white/[0.12]'
@@ -76,7 +77,7 @@ function FilterDropdown({ value, onChange, options, placeholder, icon: Icon }) {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-52 bg-zinc-800 border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden animate-slide-up">
+        <div className="absolute top-full left-0 mt-1.5 w-52 max-w-[calc(100vw-2rem)] bg-zinc-800 border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden animate-slide-up">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -141,32 +142,40 @@ export default function IncidentList() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const debounce = setTimeout(() => {
-      async function fetchIncidents() {
-        setLoading(true);
-        try {
-          const params = {};
-          if (statusFilter) params.status = statusFilter;
-          if (severityFilter) params.severity = severityFilter;
-          if (search.trim()) params.search = search.trim();
-          const res = await getIncidents(params);
-          setIncidents(res.data);
-        } catch {
-          setIncidents([]);
-        } finally {
-          setLoading(false);
-        }
-      }
-      fetchIncidents();
-    }, search ? 300 : 0);
-    return () => clearTimeout(debounce);
+  const fetchIncidents = useCallback(async (silent) => {
+    if (!silent) setLoading(true);
+    try {
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      if (severityFilter) params.severity = severityFilter;
+      if (search.trim()) params.search = search.trim();
+      const res = await getIncidents(params);
+      setIncidents(res.data);
+    } catch {
+      if (!silent) setIncidents([]);
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter, severityFilter, search]);
+
+  useEffect(() => {
+    const debounce = setTimeout(() => fetchIncidents(false), search ? 300 : 0);
+    return () => clearTimeout(debounce);
+  }, [fetchIncidents, search]);
+
+  // Live updates: re-run the current query (without the loading skeleton) when incidents change.
+  const refreshTimer = useRef(null);
+  useIncidentEvents(() => {
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => fetchIncidents(true), 300);
+  });
+  useResync(() => fetchIncidents(true));
+  useEffect(() => () => clearTimeout(refreshTimer.current), []);
 
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-zinc-50 tracking-tight">Incidents</h1>
           <p className="text-sm text-zinc-500 mt-1">
@@ -214,7 +223,7 @@ export default function IncidentList() {
       {/* Table */}
       <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] overflow-hidden">
         {/* Table header */}
-        <div className="hidden sm:grid grid-cols-[3rem_1fr_5rem_7rem_7rem_6rem] gap-4 px-5 py-3 border-b border-white/[0.06] text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <div className="hidden md:grid grid-cols-[3rem_1fr_5rem_7rem_7rem_6rem] gap-4 px-5 py-3 border-b border-white/[0.06] text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
           <span>ID</span>
           <span>Title</span>
           <span>Severity</span>
@@ -251,11 +260,11 @@ export default function IncidentList() {
               <Link
                 key={incident.id}
                 to={`/incidents/${incident.id}`}
-                className="group grid grid-cols-1 sm:grid-cols-[3rem_1fr_5rem_7rem_7rem_6rem] gap-2 sm:gap-4 items-center px-5 py-3.5 hover:bg-white/[0.02] transition-colors animate-list-in"
+                className="group flex flex-wrap items-center gap-x-3 gap-y-1.5 md:grid md:grid-cols-[3rem_1fr_5rem_7rem_7rem_6rem] md:gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.02] transition-colors animate-list-in"
                 style={{ animationDelay: `${Math.min(idx * 30, 300)}ms` }}
               >
                 <span className="text-xs text-zinc-600 font-mono">#{incident.id}</span>
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="order-last w-full md:order-none md:w-auto flex items-center gap-2 min-w-0">
                   {incident.severity === 'P1_CRITICAL' && (
                     <AlertTriangle size={14} className="text-rose-500 shrink-0" />
                   )}
@@ -265,10 +274,10 @@ export default function IncidentList() {
                 </div>
                 <SeverityBadge severity={incident.severity} />
                 <StatusBadge status={incident.status} />
-                <span className="text-xs text-zinc-500 truncate">{incident.serviceName}</span>
-                <span className="text-xs text-zinc-600 text-right flex items-center justify-end gap-1">
+                <span className="order-last w-full md:order-none md:w-auto text-xs text-zinc-500 truncate">{incident.serviceName}</span>
+                <span className="ml-auto md:ml-0 text-xs text-zinc-600 text-right flex items-center justify-end gap-1">
                   {formatDate(incident.createdAt)}
-                  <ArrowRight size={12} className="text-zinc-700 group-hover:text-zinc-400 transition-colors hidden sm:block" />
+                  <ArrowRight size={12} className="text-zinc-700 group-hover:text-zinc-400 transition-colors hidden md:block" />
                 </span>
               </Link>
             ))}

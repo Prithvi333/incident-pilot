@@ -52,7 +52,7 @@ function DocStatusBadge({ status }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ring-1",
+        "inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ring-1",
         config.bg,
         config.color,
         config.ring,
@@ -150,7 +150,7 @@ export default function DocumentUpload() {
         onDrop={handleDrop}
         onClick={() => !uploading && fileInputRef.current?.click()}
         className={clsx(
-          "relative bg-zinc-800/50 rounded-xl border-2 border-dashed p-8 mb-8 transition-all duration-200 text-center cursor-pointer",
+          "relative bg-zinc-800/50 rounded-xl border-2 border-dashed p-6 sm:p-8 mb-6 sm:mb-8 transition-all duration-200 text-center cursor-pointer",
           dragOver
             ? "border-indigo-500/50 bg-indigo-500/[0.05]"
             : "border-white/[0.08] hover:border-white/[0.15]",
@@ -256,7 +256,7 @@ export default function DocumentUpload() {
                         .get(`/${doc.id}/download`)
                         .then((res) => window.open(res.data.url, "_blank"));
                     }}
-                    className="text-sm font-medium text-zinc-200 hover:text-indigo-400 transition-colors inline-flex items-center gap-1.5"
+                    className="text-sm font-medium text-zinc-200 hover:text-indigo-400 transition-colors inline-flex max-w-full break-all items-center gap-1.5"
                   >
                     {doc.originalFilename}
                     <ExternalLink size={12} className="text-zinc-600" />

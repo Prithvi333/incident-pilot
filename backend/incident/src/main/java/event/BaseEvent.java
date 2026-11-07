@@ -18,6 +18,8 @@ public abstract class BaseEvent {
     @Builder.Default
     private String eventId = UUID.randomUUID().toString();
     private EventType eventType;
+    /** Tenant the event belongs to; consumers must ignore events without it. */
+    private Long organizationId;
     @Builder.Default
     private LocalDateTime occurredAt = LocalDateTime.now();
 

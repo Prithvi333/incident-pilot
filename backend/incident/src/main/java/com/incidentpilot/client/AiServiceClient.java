@@ -2,17 +2,26 @@ package com.incidentpilot.client;
 
 import com.incidentpilot.dto.RagResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
+/**
+ * Calls the AI service on behalf of the user, forwarding their JWT. The AI service takes the
+ * organization from that token and filters its vector search by it, so results never cross tenants.
+ * If the AI service is down or slow the caller gets a graceful "AI unavailable" response, not a 500.
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiServiceClient {
@@ -40,15 +49,25 @@ public class AiServiceClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
 
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<RagResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<Void>(headers),
+                    RagResponse.class
+            );
+            return response.getBody() != null ? response.getBody() : unavailable();
+        } catch (RestClientException e) {
+            log.warn("AI service call failed for incident #{}: {}", incidentId, e.getMessage());
+            return unavailable();
+        }
+    }
 
-        ResponseEntity<RagResponse> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                entity,
-                RagResponse.class
-        );
-
-        return response.getBody();
+    private RagResponse unavailable() {
+        return RagResponse.builder()
+                .similarMatches(List.of())
+                .resolutionSuggestion("AI service is currently unavailable. Please try again later.")
+                .aiAvailable(false)
+                .build();
     }
 }

@@ -27,4 +27,12 @@ public class RegisterRequest {
     @Email(message = "Email must be valid")
     @Size(max = 255, message = "Email must not exceed 255 characters")
     private String email;
+
+    /** Create a new organization with this name; the registering user becomes its ADMIN. */
+    @Size(min = 2, max = 100, message = "Organization name must be 2-100 characters")
+    private String organizationName;
+
+    /** Join an existing organization (as ENGINEER) using its invite code. Exclusive with organizationName. */
+    @Size(max = 64, message = "Invite code must not exceed 64 characters")
+    private String inviteCode;
 }

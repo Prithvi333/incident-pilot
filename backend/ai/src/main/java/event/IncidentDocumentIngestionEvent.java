@@ -1,11 +1,12 @@
 package event;
 
 
+import lombok.experimental.SuperBuilder;
 import lombok.*;
 
 @Getter
 @Setter
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 public class IncidentDocumentIngestionEvent extends BaseEvent {

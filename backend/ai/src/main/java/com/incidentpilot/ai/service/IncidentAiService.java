@@ -8,6 +8,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -43,18 +45,23 @@ public class IncidentAiService {
      * </ol>
      */
     @CircuitBreaker(name = "ai-service", fallbackMethod = "findSimilarFallback")
-    public RagResponse findSimilarIncidents(Long incidentId, String title, String description) {
+    public RagResponse findSimilarIncidents(Long organizationId, Long incidentId, String title, String description) {
         List<Document> results = List.of();
         List<SimilarMatch> matches = List.of();
 
         if (vectorStore != null) {
             String query = title + (description != null ? " " + description : "");
             String excludeSource = "incident:" + incidentId;
+            // Tenant isolation: only vectors tagged with the caller's organization can be retrieved.
+            // Legacy vectors without an organizationId tag never match, so they are never leaked.
+            Filter.Expression sameOrganization =
+                    new FilterExpressionBuilder().eq("organizationId", String.valueOf(organizationId)).build();
             results = vectorStore.similaritySearch(
                             SearchRequest.builder()
                                     .query(query)
                                     .topK(6)
                                     .similarityThreshold(0.5)
+                                    .filterExpression(sameOrganization)
                                     .build()
                     ).stream()
                     .filter(doc -> !excludeSource.equals(doc.getMetadata().get("source")))
@@ -120,7 +127,8 @@ public class IncidentAiService {
 
     // ── Circuit breaker fallbacks ──
 
-    public RagResponse findSimilarFallback(Long incidentId, String title, String description, Exception ex) {
+    public RagResponse findSimilarFallback(Long organizationId, Long incidentId, String title, String description,
+                                           Exception ex) {
         log.warn("AI service unavailable for similarity search: {}", ex.getMessage());
         return RagResponse.builder()
                 .similarMatches(List.of())

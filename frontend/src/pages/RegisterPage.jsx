@@ -7,17 +7,27 @@ import { Zap, Eye, EyeOff } from 'lucide-react';
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [form, setForm] = useState({ username: '', password: '', email: '' });
+  const [form, setForm] = useState({
+    username: '', password: '', email: '', organizationName: '', inviteCode: '',
+  });
+  // 'create' = start a new organization (you become its admin); 'join' = join with an invite code
+  const [mode, setMode] = useState('create');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const orgValue = mode === 'create' ? form.organizationName : form.inviteCode;
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      const res = await api.post('/auth/register', form);
+      const { organizationName, inviteCode, ...account } = form;
+      const payload = mode === 'create'
+        ? { ...account, organizationName: organizationName.trim() }
+        : { ...account, inviteCode: inviteCode.trim() };
+      const res = await api.post('/auth/register', payload);
       login(res.data);
       navigate('/');
     } catch (err) {
@@ -34,7 +44,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-zinc-900 flex items-center justify-center p-4">
       {/* Background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/[0.07] rounded-full blur-[120px]" />
@@ -50,7 +60,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-zinc-800/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-8 shadow-2xl shadow-black/40">
+        <div className="bg-zinc-800/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-6 sm:p-8 shadow-2xl shadow-black/40">
           <div className="text-center mb-6">
             <h1 className="text-lg font-semibold text-zinc-100">Create your account</h1>
             <p className="text-sm text-zinc-500 mt-1">Get started with IncidentPilot</p>
@@ -102,6 +112,49 @@ export default function RegisterPage() {
               />
             </div>
 
+            <div>
+              <div className="flex rounded-lg bg-zinc-800/50 border border-white/[0.08] p-0.5 mb-3">
+                {[
+                  { value: 'create', label: 'Create organization' },
+                  { value: 'join', label: 'Join with invite code' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setMode(opt.value)}
+                    className={
+                      'flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors ' +
+                      (mode === opt.value
+                        ? 'bg-indigo-500/15 text-indigo-300'
+                        : 'text-zinc-500 hover:text-zinc-300')
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <label className="block text-[12px] font-medium text-zinc-400 mb-1.5">
+                {mode === 'create' ? 'Organization name' : 'Invite code'}
+              </label>
+              <input
+                type="text"
+                value={orgValue}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    [mode === 'create' ? 'organizationName' : 'inviteCode']: e.target.value,
+                  })
+                }
+                className="w-full bg-zinc-800/50 border border-white/[0.08] rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus-ring transition-colors hover:border-white/[0.12]"
+                placeholder={mode === 'create' ? 'e.g. Acme Corp' : 'Ask your organization admin'}
+              />
+              <p className="text-[11px] text-zinc-600 mt-1.5">
+                {mode === 'create'
+                  ? 'You will be the administrator and can share an invite code with your team.'
+                  : 'You will join as an engineer.'}
+              </p>
+            </div>
+
             {error && (
               <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
                 <p className="text-rose-400 text-sm">{error}</p>
@@ -110,7 +163,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={submitting || !form.username || !form.password}
+              disabled={submitting || !form.username || !form.password || !orgValue.trim()}
               className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white py-2.5 rounded-lg text-sm font-semibold hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-indigo-500/20"
             >
               {submitting ? (

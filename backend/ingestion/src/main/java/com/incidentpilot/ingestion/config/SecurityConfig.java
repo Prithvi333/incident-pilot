@@ -38,6 +38,11 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.OPTIONS, "/**"
                         ).permitAll()
+                        // Same rules as the incident service: everyone can read, only ENGINEER/ADMIN can upload
+                        .requestMatchers(HttpMethod.GET, "/api/documents/**")
+                        .hasAnyRole("VIEWER", "ENGINEER", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/documents/**")
+                        .hasAnyRole("ENGINEER", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(

@@ -37,6 +37,14 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    /**
+     * The tenant this user belongs to. The database column is nullable only so that rows created
+     * before multi-tenancy can be migrated; the application always sets it for new users.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

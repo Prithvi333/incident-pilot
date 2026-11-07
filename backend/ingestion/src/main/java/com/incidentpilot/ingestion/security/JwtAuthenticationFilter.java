@@ -19,6 +19,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import javax.crypto.SecretKey;
 import java.io.IOException;
 
+/**
+ * Validates the JWT issued by the incident service and exposes an {@link AuthenticatedUser}
+ * (username, organization, role) as the principal. The role becomes a Spring authority so endpoint
+ * rules can distinguish VIEWER from ENGINEER/ADMIN, and tokens without an organization are rejected.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -52,31 +57,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .getPayload();
 
             String username = claims.getSubject();
+            Number orgClaim = claims.get("orgId", Number.class);
 
             if (username == null || username.isBlank()) {
-                response.sendError(
-                        HttpServletResponse.SC_UNAUTHORIZED,
-                        "JWT subject is missing"
-                );
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "JWT subject is missing");
+                return;
+            }
+            if (orgClaim == null) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED,
+                        "JWT has no organization; please sign in again");
                 return;
             }
 
-            var authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            username,
-                            null,
-                            AuthorityUtils.NO_AUTHORITIES
-                    );
+            String role = claims.get("role", String.class);
+            AuthenticatedUser user = new AuthenticatedUser(username, orgClaim.longValue(), role);
+            var authentication = new UsernamePasswordAuthenticationToken(
+                    user, null,
+                    role == null ? AuthorityUtils.NO_AUTHORITIES : AuthorityUtils.createAuthorityList("ROLE_" + role));
 
-            SecurityContextHolder.getContext()
-                    .setAuthentication(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
         } catch (JwtException | IllegalArgumentException e) {
             SecurityContextHolder.clearContext();
-            response.sendError(
-                    HttpServletResponse.SC_UNAUTHORIZED,
-                    "Invalid or expired JWT"
-            );
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired JWT");
             return;
         }
 

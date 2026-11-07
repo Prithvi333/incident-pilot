@@ -95,13 +95,13 @@ export default function SimilarIncidents({ incidentId }) {
               key={idx}
               className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-colors"
             >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-400">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="flex min-w-0 items-center gap-1.5 break-all text-[11px] font-medium text-zinc-400">
                   <FileText size={12} />
                   {match.source}
                 </span>
                 <span className={clsx(
-                  'text-[11px] font-bold px-2 py-0.5 rounded-full',
+                  'shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full',
                   match.score >= 0.8
                     ? 'text-emerald-400 bg-emerald-500/10'
                     : match.score >= 0.6

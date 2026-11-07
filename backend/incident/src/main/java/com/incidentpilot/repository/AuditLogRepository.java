@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
-    /** Retrieves the full audit trail for a specific entity, most recent first. */
-    List<AuditLog> findByEntityTypeAndEntityIdOrderByPerformedAtDesc(String entityType, Long entityId);
+    /** Retrieves the audit trail for one entity within one organization, most recent first. */
+    List<AuditLog> findByEntityTypeAndEntityIdAndOrganizationIdOrderByPerformedAtDesc(
+            String entityType, Long entityId, Long organizationId);
 }

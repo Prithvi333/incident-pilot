@@ -9,8 +9,10 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -20,7 +22,7 @@ public class RagService {
 
     /**
      * Uses {@link ObjectProvider} instead of direct injection so the app starts
-     * even when Qdrant or Bedrock is unreachable — graceful degradation over hard failure.
+     * even when Qdrant or the LLM is unreachable — graceful degradation over hard failure.
      */
     public RagService(ObjectProvider<VectorStore> vectorStoreProvider,
                       ObjectProvider<ChatModel> chatModelProvider) {
@@ -32,43 +34,62 @@ public class RagService {
 
     }
 
-    /** Embeds an incident's title, description, service, and severity into the vector store for future similarity search. */
+    /**
+     * Embeds an incident's title, description, service, and severity into the vector store for future
+     * similarity search. The vector is tagged with the owning organization so searches can be
+     * isolated per tenant, and it gets a deterministic id so a redelivered Kafka message updates the
+     * same vector instead of creating a duplicate.
+     */
     @CircuitBreaker(name = "ai-service", fallbackMethod = "embedIncidentFallback")
     public void embedIncident(IncidentDocumentIngestionEvent incident) {
         if (vectorStore == null) {
             log.debug("Skipping embedIncident — VectorStore not configured");
             return;
         }
+        if (incident.getOrganizationId() == null) {
+            log.warn("Skipping incident event {} without organizationId", incident.getEventId());
+            return;
+        }
         String content = "Incident: " + incident.getTitle()
                 + "\nService: " + incident.getServiceName()
-                + "\nSeverity: " + incident.getServiceName()
+                + "\nSeverity: " + incident.getSeverityName()
                 + (incident.getDescription() != null ? "\nDescription: " + incident.getDescription() : "");
 
-        Document doc = new Document(content, Map.of(
+        String id = deterministicId("incident:" + incident.getOrganizationId() + ":" + incident.getId());
+        Document doc = new Document(id, content, Map.of(
                 "type", "incident",
+                "organizationId", String.valueOf(incident.getOrganizationId()),
                 "incidentId", String.valueOf(incident.getId()),
                 "title", incident.getTitle(),
                 "source", "incident:" + incident.getId()
         ));
         vectorStore.add(List.of(doc));
-        log.info("Embedded incident #{} into vector store", incident.getId());
+        log.info("Embedded incident #{} (org {}) into vector store", incident.getId(), incident.getOrganizationId());
     }
 
     @CircuitBreaker(name = "ai-service", fallbackMethod = "embedDocumentFallback")
-    public void embedDocument(String text, String filename) {
+    public void embedDocument(String text, String filename, Long organizationId, String eventId) {
         if (vectorStore == null) {
             log.debug("Skipping embedDocument — VectorStore not configured");
             return;
         }
-        Document doc = new Document(text, Map.of(
+        if (organizationId == null) {
+            log.warn("Skipping document event {} without organizationId", eventId);
+            return;
+        }
+        Document doc = new Document(deterministicId("document:" + eventId), text, Map.of(
                 "type", "document",
+                "organizationId", String.valueOf(organizationId),
                 "source", filename
         ));
         vectorStore.add(List.of(doc));
-        log.info("Embedded document '{}' into vector store", filename);
+        log.info("Embedded document '{}' (org {}) into vector store", filename, organizationId);
     }
 
-
+    /** Same input always yields the same UUID, which makes re-processing an event idempotent. */
+    private String deterministicId(String key) {
+        return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+    }
 
     // ── Circuit breaker fallbacks ──
 
@@ -76,10 +97,8 @@ public class RagService {
         log.warn("AI service unavailable — skipped embedding for incident #{}: {}", incident.getId(), ex.getMessage());
     }
 
-    public void embedDocumentFallback(String text, String filename, Exception ex) {
+    public void embedDocumentFallback(String text, String filename, Long organizationId, String eventId, Exception ex) {
         log.warn("AI service unavailable — skipped embedding for document '{}': {}", filename, ex.getMessage());
     }
 
-
 }
-

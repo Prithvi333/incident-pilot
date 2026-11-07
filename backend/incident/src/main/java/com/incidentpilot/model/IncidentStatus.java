@@ -11,6 +11,7 @@ import java.util.Set;
  *   ACKNOWLEDGED → INVESTIGATING
  *   INVESTIGATING → RESOLVED
  *   RESOLVED → POSTMORTEM
+ *   RESOLVED → INVESTIGATING   (reopen: the fix did not hold)
  *
  * Why a state machine? A simple string status lets anyone set any value
  * (e.g. jump from TRIGGERED straight to RESOLVED, skipping investigation).
@@ -33,9 +34,14 @@ public enum IncidentStatus {
             TRIGGERED, Set.of(ACKNOWLEDGED),
             ACKNOWLEDGED, Set.of(INVESTIGATING),
             INVESTIGATING, Set.of(RESOLVED),
-            RESOLVED, Set.of(POSTMORTEM)
+            RESOLVED, Set.of(POSTMORTEM, INVESTIGATING)
             // POSTMORTEM has no outgoing transitions — it's the terminal state
     );
+
+    /** A move from RESOLVED back to INVESTIGATING is a reopen rather than a normal forward step. */
+    public static boolean isReopen(IncidentStatus from, IncidentStatus to) {
+        return from == RESOLVED && to == INVESTIGATING;
+    }
 
     /**
      * Check if moving from this status to the target status is allowed.

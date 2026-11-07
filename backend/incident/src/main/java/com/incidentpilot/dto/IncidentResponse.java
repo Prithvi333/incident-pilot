@@ -23,6 +23,7 @@ public class IncidentResponse {
     private IncidentStatus status;
     private String assignee;
     private String serviceName;
+    private String createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime resolvedAt;
@@ -40,6 +41,7 @@ public class IncidentResponse {
                 .status(incident.getStatus())
                 .assignee(incident.getAssignee())
                 .serviceName(incident.getServiceName())
+                .createdBy(incident.getCreatedBy())
                 .createdAt(incident.getCreatedAt())
                 .updatedAt(incident.getUpdatedAt())
                 .resolvedAt(incident.getResolvedAt())

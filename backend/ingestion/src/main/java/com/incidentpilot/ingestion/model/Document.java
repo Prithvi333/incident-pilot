@@ -26,6 +26,13 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Owning organization. Nullable at the DB level only for documents uploaded before
+     * multi-tenancy (backfilled by the incident service's startup migration); always set for new uploads.
+     */
+    @Column(name = "organization_id")
+    private Long organizationId;
+
     @Column(nullable = false)
     private String originalFilename;
 

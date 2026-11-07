@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   getIncident,
   updateIncidentStatus,
+  updateIncident,
+  assignIncident,
+  getMembers,
   getTimeline,
   addTimelineEvent,
 } from '../api/incidentApi';
+import { useAuth } from '../context/AuthContext';
+import { useIncidentEvents, useResync } from '../context/RealtimeContext';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
 import SimilarIncidents from '../components/SimilarIncidents';
@@ -23,6 +28,8 @@ import {
   Loader2,
   AlertTriangle,
   Clock,
+  RotateCcw,
+  Shield,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -46,6 +53,13 @@ const ACTION_COLORS = {
   RESOLVED: 'from-emerald-600 to-emerald-500 shadow-emerald-500/20',
   POSTMORTEM: 'from-zinc-600 to-zinc-500 shadow-zinc-500/20',
 };
+
+const SEVERITY_OPTIONS = [
+  { value: 'P1_CRITICAL', label: 'P1 - Critical' },
+  { value: 'P2_HIGH', label: 'P2 - High' },
+  { value: 'P3_MEDIUM', label: 'P3 - Medium' },
+  { value: 'P4_LOW', label: 'P4 - Low' },
+];
 
 const EVENT_ICONS = {
   STATUS_CHANGE: GitCommit,
@@ -96,11 +110,13 @@ export default function IncidentDetail() {
   const [transitioning, setTransitioning] = useState(false);
 
   const [comment, setComment] = useState('');
-  const [author, setAuthor] = useState('');
   const [eventType, setEventType] = useState('COMMENT');
   const [submitting, setSubmitting] = useState(false);
+  const [members, setMembers] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const { canModify } = useAuth();
 
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     try {
       const [incRes, tlRes] = await Promise.all([
         getIncident(id),
@@ -108,46 +124,84 @@ export default function IncidentDetail() {
       ]);
       setIncident(incRes.data);
       setTimeline(tlRes.data);
+      setError(null);
     } catch {
       setError('Failed to load incident.');
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
 
   useEffect(() => {
     fetchData();
-  }, [id]);
+  }, [fetchData]);
 
-  async function handleTransition() {
-    const nextStatus = NEXT_STATUS[incident.status];
-    if (!nextStatus) return;
+  useEffect(() => {
+    getMembers().then((res) => setMembers(res.data)).catch(() => setMembers([]));
+  }, []);
+
+  // Live updates: when this incident changes (status, assignment, comment, SLA alert...) reload it.
+  const refreshTimer = useRef(null);
+  useIncidentEvents((event) => {
+    if (String(event.incidentId) !== String(id)) return;
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(fetchData, 300);
+  });
+  useResync(fetchData);
+  useEffect(() => () => clearTimeout(refreshTimer.current), []);
+
+  async function handleTransition(targetStatus) {
+    if (!targetStatus) return;
     setTransitioning(true);
     try {
-      await updateIncidentStatus(id, nextStatus);
+      await updateIncidentStatus(id, targetStatus);
       await fetchData();
-    } catch {
-      setError('Failed to update status.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update status.');
     } finally {
       setTransitioning(false);
     }
   }
 
+  async function handleAssign(assignee) {
+    setSaving(true);
+    try {
+      await assignIncident(id, assignee);
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to assign incident.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSeverity(severity) {
+    setSaving(true);
+    try {
+      await updateIncident(id, { severity });
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to change severity.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleAddEvent(e) {
     e.preventDefault();
-    if (!comment.trim() || !author.trim()) return;
+    if (!comment.trim()) return;
     setSubmitting(true);
     try {
+      // The author is the signed-in user; the server ignores any client-supplied name.
       await addTimelineEvent(id, {
         type: eventType,
         message: comment,
-        author,
       });
       setComment('');
       const tlRes = await getTimeline(id);
       setTimeline(tlRes.data);
-    } catch {
-      setError('Failed to add timeline event.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to add timeline event.');
     } finally {
       setSubmitting(false);
     }
@@ -188,11 +242,11 @@ export default function IncidentDetail() {
           <StatusBadge status={incident.status} />
           <span className="text-zinc-600 text-sm font-mono">INC-{incident.id}</span>
         </div>
-        <h1 className="text-2xl font-bold text-zinc-50 tracking-tight mb-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-zinc-50 tracking-tight mb-2 break-words">
           {incident.title}
         </h1>
         {incident.description && (
-          <p className="text-sm text-zinc-400 leading-relaxed max-w-3xl">
+          <p className="text-sm text-zinc-400 leading-relaxed max-w-3xl break-words">
             {incident.description}
           </p>
         )}
@@ -202,9 +256,9 @@ export default function IncidentDetail() {
         {/* Left column - Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Transition action */}
-          {nextStatus && (
+          {canModify && nextStatus && (
             <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Next Step</p>
                   <p className="text-sm text-zinc-300">
@@ -212,7 +266,7 @@ export default function IncidentDetail() {
                   </p>
                 </div>
                 <button
-                  onClick={handleTransition}
+                  onClick={() => handleTransition(nextStatus)}
                   disabled={transitioning}
                   className={clsx(
                     'inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-gradient-to-r shadow-lg disabled:opacity-40',
@@ -227,6 +281,24 @@ export default function IncidentDetail() {
                   {transitioning ? 'Updating...' : ACTION_LABELS[nextStatus]}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Reopen: the fix did not hold */}
+          {canModify && incident.status === 'RESOLVED' && (
+            <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Not fixed?</p>
+                <p className="text-sm text-zinc-300">Reopen this incident and resume investigating.</p>
+              </div>
+              <button
+                onClick={() => handleTransition('INVESTIGATING')}
+                disabled={transitioning}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-amber-300 border border-amber-500/30 hover:bg-amber-500/10 disabled:opacity-40 transition-colors"
+              >
+                <RotateCcw size={15} />
+                Reopen
+              </button>
             </div>
           )}
 
@@ -247,7 +319,8 @@ export default function IncidentDetail() {
               </h3>
             </div>
 
-            {/* Add event form */}
+            {/* Add event form (viewers are read-only) */}
+            {canModify && (
             <form onSubmit={handleAddEvent} className="px-5 py-4 border-b border-white/[0.06]">
               <div className="flex gap-2 mb-3">
                 <select
@@ -258,13 +331,6 @@ export default function IncidentDetail() {
                   <option value="COMMENT">Comment</option>
                   <option value="ACTION">Action</option>
                 </select>
-                <input
-                  type="text"
-                  placeholder="Your name"
-                  value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
-                  className="bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus-ring w-36"
-                />
               </div>
               <div className="flex gap-2">
                 <input
@@ -276,14 +342,15 @@ export default function IncidentDetail() {
                 />
                 <button
                   type="submit"
-                  disabled={submitting || !comment.trim() || !author.trim()}
-                  className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  disabled={submitting || !comment.trim()}
+                  className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   Add
                 </button>
               </div>
             </form>
+            )}
 
             {/* Timeline entries */}
             {timeline.length === 0 ? (
@@ -302,7 +369,7 @@ export default function IncidentDetail() {
                           <EventIcon size={14} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 mb-1">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                                 {event.type.replace('_', ' ')}
@@ -341,8 +408,54 @@ export default function IncidentDetail() {
                 <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
                   <User size={12} /> Assignee
                 </dt>
-                <dd className="text-sm text-zinc-200">{incident.assignee || <span className="text-zinc-600">Unassigned</span>}</dd>
+                <dd className="text-sm text-zinc-200">
+                  {canModify ? (
+                    <select
+                      value={incident.assignee || ''}
+                      onChange={(e) => handleAssign(e.target.value)}
+                      disabled={saving}
+                      className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-sm text-zinc-200 focus-ring cursor-pointer disabled:opacity-50"
+                    >
+                      <option value="">Unassigned</option>
+                      {incident.assignee && !members.some((m) => m.username === incident.assignee) && (
+                        <option value={incident.assignee}>{incident.assignee}</option>
+                      )}
+                      {members.map((m) => (
+                        <option key={m.id} value={m.username}>{m.username} ({m.role.toLowerCase()})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    incident.assignee || <span className="text-zinc-600">Unassigned</span>
+                  )}
+                </dd>
               </div>
+              {incident.createdBy && (
+                <div>
+                  <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
+                    <User size={12} /> Reported by
+                  </dt>
+                  <dd className="text-sm text-zinc-300">{incident.createdBy}</dd>
+                </div>
+              )}
+              {canModify && (
+                <div>
+                  <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
+                    <Shield size={12} /> Severity
+                  </dt>
+                  <dd>
+                    <select
+                      value={incident.severity}
+                      onChange={(e) => handleSeverity(e.target.value)}
+                      disabled={saving}
+                      className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-sm text-zinc-200 focus-ring cursor-pointer disabled:opacity-50"
+                    >
+                      {SEVERITY_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
                   <Calendar size={12} /> Created

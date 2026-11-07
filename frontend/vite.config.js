@@ -9,12 +9,20 @@ export default defineConfig({
     // Proxy API calls to Spring Boot during development
     proxy: {
       "/api/documents": {
-        target: "http://10.0.0.11:8082",
+        target: "http://localhost:8082",
+        changeOrigin: true,
+      },
+
+      // Real-time events and notifications (STOMP over WebSocket) are served by the incident service.
+      // The incident service allows http://localhost:* by default (ALLOWED_ORIGINS) for this handshake.
+      "/ws": {
+        target: "http://localhost:8080",
+        ws: true,
         changeOrigin: true,
       },
 
       "/api": {
-        target: "http://10.0.0.14:8080",
+        target: "http://localhost:8080",
         changeOrigin: true,
       },
     },

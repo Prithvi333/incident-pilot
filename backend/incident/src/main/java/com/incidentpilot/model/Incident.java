@@ -47,6 +47,28 @@ public class Incident {
     @Column(nullable = false)
     private String serviceName;
 
+    /** Tenant owner. Nullable at the DB level only for pre-multi-tenancy rows; always set by the service. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    /** Username of the reporter, taken from the authenticated principal (never from the request body). */
+    @Column(length = 100)
+    private String createdBy;
+
+    /** Optimistic lock: concurrent updates fail instead of silently overwriting each other. */
+    @Version
+    @Column(columnDefinition = "BIGINT NOT NULL DEFAULT 0")
+    private long version;
+
+    /** Set once the acknowledge-SLA breach was alerted, so the scheduler does not alert every minute. */
+    @Column(columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    private boolean ackBreachNotified;
+
+    /** Set once the resolve-SLA breach was alerted. Cleared when the incident is reopened. */
+    @Column(columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    private boolean resolveBreachNotified;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -38,6 +38,11 @@ public class KafkaProducerConfig {
                 true
         );
 
+        // Fail fast when the broker is unreachable (default is to block the caller for 60s).
+        props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 2000);
+        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 30000);
+        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 10000);
+
         return new DefaultKafkaProducerFactory<>(
                 props,
                 new StringSerializer(),

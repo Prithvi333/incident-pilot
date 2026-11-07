@@ -48,7 +48,30 @@ export const getIncident = (id) => api.get(`/incidents/${id}`);
 export const updateIncidentStatus = (id, status) =>
   api.patch(`/incidents/${id}/status`, { status });
 
+export const updateIncident = (id, data) => api.patch(`/incidents/${id}`, data);
+
+export const assignIncident = (id, assignee) =>
+  api.patch(`/incidents/${id}/assignee`, { assignee: assignee || null });
+
 export const getIncidentStats = () => api.get("/incidents/stats");
+
+// ── Organization ──
+
+export const getOrganization = () => api.get("/organization");
+
+export const getMembers = () => api.get("/organization/members");
+
+// ── Notifications ──
+
+export const getNotifications = (params = {}) =>
+  api.get("/notifications", { params });
+
+export const getUnreadCount = () => api.get("/notifications/unread-count");
+
+export const markNotificationRead = (id) =>
+  api.patch(`/notifications/${id}/read`);
+
+export const markAllNotificationsRead = () => api.post("/notifications/read-all");
 
 // ── Similar Incidents (RAG) ──
 

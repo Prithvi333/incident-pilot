@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
@@ -42,10 +43,12 @@ public class KafkaConsumerConfig {
 
         deserializer.addTrustedPackages("com.incidentpilot.ai.event");
 
+        // ErrorHandlingDeserializer turns an undeserializable (poison) record into a handled error that
+        // is skipped, instead of making the consumer fail on the same record forever.
         return new DefaultKafkaConsumerFactory<>(
                 props,
                 new StringDeserializer(),
-                deserializer
+                new ErrorHandlingDeserializer<>(deserializer)
         );
     }
 

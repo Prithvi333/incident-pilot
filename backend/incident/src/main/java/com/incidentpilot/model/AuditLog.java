@@ -40,6 +40,9 @@ public class AuditLog {
     @Column(nullable = false)
     private String performedBy;
 
+    /** Tenant the audited entity belongs to; audit reads are always filtered by it. */
+    private Long organizationId;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime performedAt;
 

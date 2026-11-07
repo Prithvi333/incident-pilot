@@ -9,66 +9,80 @@ import com.incidentpilot.model.TimelineEvent;
 import com.incidentpilot.model.TimelineEventType;
 import com.incidentpilot.repository.IncidentRepository;
 import com.incidentpilot.repository.TimelineEventRepository;
+import com.incidentpilot.security.CurrentUser;
+import com.incidentpilot.security.TenantPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/** Timeline entries for an incident. All lookups are scoped to the caller's organization. */
 @Service
 @RequiredArgsConstructor
 public class TimelineEventService {
 
     private final TimelineEventRepository timelineEventRepository;
     private final IncidentRepository incidentRepository;
+    private final IncidentActivityService activityService;
 
     /**
      * Add a manual timeline entry (COMMENT or ACTION) to an incident.
-     * Engineers use this during an outage to log what they're doing.
+     * The author is the authenticated user — never a value supplied by the client.
      */
     @Transactional
     public TimelineEventResponse addEvent(Long incidentId, CreateTimelineEventRequest request) {
-        Incident incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new IncidentNotFoundException(incidentId));
+        TenantPrincipal me = CurrentUser.require();
+        Incident incident = findIncident(incidentId, me.getOrganizationId());
 
-        TimelineEvent event = TimelineEvent.builder()
+        TimelineEvent saved = timelineEventRepository.save(TimelineEvent.builder()
                 .incident(incident)
                 .type(request.getType())
                 .message(request.getMessage())
-                .author(request.getAuthor())
-                .build();
+                .author(me.getUsername())
+                .build());
 
-        TimelineEvent saved = timelineEventRepository.save(event);
+        activityService.commentAdded(incident, saved, me.getUsername());
         return TimelineEventResponse.from(saved);
     }
 
-    /**
-     * Auto-generate a STATUS_CHANGE timeline entry.
-     * Called internally by IncidentService when an incident transitions status.
-     * Author is "system" because this is automatic, not a human action.
-     */
+    /** Auto-generate a STATUS_CHANGE timeline entry attributed to whoever made the change. */
     @Transactional
-    public void recordStatusChange(Incident incident, IncidentStatus from, IncidentStatus to) {
-        TimelineEvent event = TimelineEvent.builder()
-                .incident(incident)
-                .type(TimelineEventType.STATUS_CHANGE)
-                .message("Status changed from " + from + " to " + to)
-                .author("system")
-                .build();
+    public void recordStatusChange(Incident incident, IncidentStatus from, IncidentStatus to, String actor) {
+        String message = IncidentStatus.isReopen(from, to)
+                ? "Incident reopened (status changed from " + from + " to " + to + ")"
+                : "Status changed from " + from + " to " + to;
+        recordSystemNote(incident, actor, message, TimelineEventType.STATUS_CHANGE);
+    }
 
-        timelineEventRepository.save(event);
+    /** Auto-generated note for assignment/escalation changes. */
+    @Transactional
+    public void recordSystemNote(Incident incident, String actor, String message) {
+        recordSystemNote(incident, actor, message, TimelineEventType.ACTION);
+    }
+
+    private void recordSystemNote(Incident incident, String actor, String message, TimelineEventType type) {
+        timelineEventRepository.save(TimelineEvent.builder()
+                .incident(incident)
+                .type(type)
+                .message(message)
+                .author(actor)
+                .build());
     }
 
     /** Get full timeline for an incident, ordered oldest-first */
     @Transactional(readOnly = true)
     public List<TimelineEventResponse> getTimeline(Long incidentId) {
-        // Verify the incident exists first
-        if (!incidentRepository.existsById(incidentId)) {
-            throw new IncidentNotFoundException(incidentId);
-        }
+        TenantPrincipal me = CurrentUser.require();
+        findIncident(incidentId, me.getOrganizationId());
 
         return timelineEventRepository.findByIncidentIdOrderByCreatedAtAsc(incidentId).stream()
                 .map(TimelineEventResponse::from)
                 .toList();
+    }
+
+    private Incident findIncident(Long incidentId, Long organizationId) {
+        return incidentRepository.findByIdAndOrganizationId(incidentId, organizationId)
+                .orElseThrow(() -> new IncidentNotFoundException(incidentId));
     }
 }

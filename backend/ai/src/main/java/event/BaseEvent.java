@@ -19,6 +19,8 @@ public abstract class BaseEvent {
 
     private String eventId;
     private EventType eventType;
+    /** Tenant the event belongs to; events without it are ignored by the consumer. */
+    private Long organizationId;
     private LocalDateTime occurredAt;
 
     public void initializeEvent() {

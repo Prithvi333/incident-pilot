@@ -54,10 +54,13 @@ services:
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-      SPRING_AI_VECTORSTORE_QDRANT_HOST: ${QDRANT_HOST:-qdrant}
-      SPRING_AI_VECTORSTORE_QDRANT_PORT: ${QDRANT_PORT:-6334}
-      SPRING_AI_VECTORSTORE_QDRANT_USE_TLS: "${QDRANT_USE_TLS:-false}"
+      # Shared HMAC key: must be identical in the incident, ingestion and ai services
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (base64) in .env}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # The AI service joins the same Docker network (see backend/ai/docker-compose.yml)
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai:8081}
+      # Browser origins allowed for CORS + WebSocket handshake (add your frontend's public origin)
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:*,http://127.0.0.1:*}
     networks:
       - incidentpilot-network
     depends_on:

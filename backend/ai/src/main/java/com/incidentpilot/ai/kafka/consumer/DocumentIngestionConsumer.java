@@ -37,7 +37,9 @@ public class DocumentIngestionConsumer {
                 if (event instanceof DocumentIngestionEvent documentEvent) {
                     ragService.embedDocument(
                             documentEvent.getText(),
-                            documentEvent.getFilename()
+                            documentEvent.getFilename(),
+                            documentEvent.getOrganizationId(),
+                            documentEvent.getEventId()
                     );
                 } else {
                     log.warn("Invalid payload class for DOCUMENT event");

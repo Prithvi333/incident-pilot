@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getIncidentStats, getIncidents } from '../api/incidentApi';
+import { useIncidentEvents, useResync } from '../context/RealtimeContext';
 import StatsCard from '../components/StatsCard';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
@@ -67,23 +68,34 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [statsRes, incidentsRes] = await Promise.all([
-          getIncidentStats(),
-          getIncidents(),
-        ]);
-        setStats(statsRes.data);
-        setIncidents(incidentsRes.data);
-      } catch {
-        setError('Failed to load dashboard data. Is the backend running?');
-      } finally {
-        setLoading(false);
-      }
+  const fetchData = useCallback(async () => {
+    try {
+      const [statsRes, incidentsRes] = await Promise.all([
+        getIncidentStats(),
+        getIncidents(),
+      ]);
+      setStats(statsRes.data);
+      setIncidents(incidentsRes.data);
+      setError(null);
+    } catch {
+      setError('Failed to load dashboard data. Is the backend running?');
+    } finally {
+      setLoading(false);
     }
-    fetchData();
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Live updates: refetch (debounced) whenever any incident in the organization changes.
+  const refreshTimer = useRef(null);
+  useIncidentEvents(() => {
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(fetchData, 300);
+  });
+  useResync(fetchData);
+  useEffect(() => () => clearTimeout(refreshTimer.current), []);
 
   if (loading) return <DashboardSkeleton />;
   if (error) {
@@ -125,7 +137,7 @@ export default function Dashboard() {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl font-bold text-zinc-50 tracking-tight">Dashboard</h1>
           <p className="text-sm text-zinc-500 mt-1">Real-time incident overview</p>
@@ -180,7 +192,7 @@ export default function Dashboard() {
               <Activity size={15} className="text-zinc-500" />
               Status Distribution
             </h3>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
               <div className="w-40 h-40 flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -201,7 +213,7 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex-1 space-y-2">
+              <div className="w-full flex-1 space-y-2">
                 {statusData.map(s => (
                   <div key={s.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -273,10 +285,10 @@ export default function Dashboard() {
               <Link
                 key={incident.id}
                 to={`/incidents/${incident.id}`}
-                className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group"
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.02] transition-colors group"
               >
-                <span className="text-xs text-zinc-600 font-mono w-8">#{incident.id}</span>
-                <span className="flex-1 text-sm text-zinc-200 font-medium group-hover:text-zinc-50 transition-colors truncate">
+                <span className="text-xs text-zinc-600 font-mono sm:w-8">#{incident.id}</span>
+                <span className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1 text-sm text-zinc-200 font-medium group-hover:text-zinc-50 transition-colors truncate">
                   {incident.title}
                 </span>
                 <SeverityBadge severity={incident.severity} />
@@ -284,7 +296,7 @@ export default function Dashboard() {
                 <span className="text-xs text-zinc-600 hidden sm:block w-24 text-right">
                   {incident.serviceName}
                 </span>
-                <ArrowRight size={14} className="text-zinc-700 group-hover:text-zinc-400 transition-colors" />
+                <ArrowRight size={14} className="hidden sm:block text-zinc-700 group-hover:text-zinc-400 transition-colors" />
               </Link>
             ))}
           </div>

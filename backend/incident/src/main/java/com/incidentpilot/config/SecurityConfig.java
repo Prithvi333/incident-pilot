@@ -46,7 +46,11 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/h2-console/**").permitAll()
+                        // Liveness/readiness probes (Docker healthcheck, load balancer) must not need a token
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // WebSocket handshake: the JWT is verified on STOMP CONNECT (StompAuthChannelInterceptor),
+                        // because browsers cannot attach an Authorization header to a WebSocket upgrade.
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/incidents/**").hasAnyRole("VIEWER", "ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/incidents/**").hasAnyRole("ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/incidents/**").hasAnyRole("ENGINEER", "ADMIN")
@@ -66,7 +70,6 @@ public class SecurityConfig {
                             response.getWriter().write("{\"status\":403,\"error\":\"Access denied\"}");
                         })
                 )
-                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
