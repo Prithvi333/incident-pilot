@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createIncident } from '../api/incidentApi';
+import { createIncident, getMembers } from '../api/incidentApi';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -31,6 +31,12 @@ export default function CreateIncident() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
+  // Only members of your own organization can be assigned
+  const [members, setMembers] = useState([]);
+
+  useEffect(() => {
+    getMembers().then((res) => setMembers(res.data)).catch(() => setMembers([]));
+  }, []);
 
   function validate() {
     const errs = {};
@@ -53,6 +59,8 @@ export default function CreateIncident() {
     } catch (err) {
       if (err.response?.data?.errors) {
         setServerError(err.response.data.errors.join(', '));
+      } else if (err.response?.data?.error) {
+        setServerError(err.response.data.error);
       } else {
         setServerError('Failed to create incident. Is the backend running?');
       }
@@ -84,7 +92,7 @@ export default function CreateIncident() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-6 space-y-5">
+        <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-4 sm:p-6 space-y-5">
           {/* Title */}
           <div>
             <label className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-zinc-400 mb-2">
@@ -132,7 +140,7 @@ export default function CreateIncident() {
               Severity
               <span className="text-rose-400">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {SEVERITIES.map(({ value, label, desc, color }) => (
                 <button
                   key={value}
@@ -155,7 +163,7 @@ export default function CreateIncident() {
           </div>
         </div>
 
-        <div className="bg-zinc-900 rounded-xl border border-white/[0.06] p-6 space-y-5">
+        <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-4 sm:p-6 space-y-5">
           {/* Service */}
           <div>
             <label className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-zinc-400 mb-2">
@@ -187,13 +195,18 @@ export default function CreateIncident() {
               <User size={13} />
               Assignee
             </label>
-            <input
-              type="text"
+            <select
               value={form.assignee}
               onChange={handleChange('assignee')}
-              placeholder="Who's handling this?"
-              className="w-full bg-zinc-800/50 border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus-ring transition-colors hover:border-white/[0.12]"
-            />
+              className="w-full bg-zinc-800/50 border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-zinc-100 focus-ring transition-colors hover:border-white/[0.12] cursor-pointer"
+            >
+              <option value="">Unassigned</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.username}>
+                  {m.username} ({m.role.toLowerCase()})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

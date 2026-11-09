@@ -109,18 +109,19 @@ flow works through the UI. `npm run build` succeeds.
 
 ---
 
-## Milestone 7: Docker & CI/CD
-**Status**: Not started
+## Milestone 7: Docker & CI/CD ✅
+**Status**: Complete
 **Depends on**: Milestone 6
 
-- [ ] Multi-stage Dockerfile for backend
-- [ ] Dockerfile for frontend (nginx)
-- [ ] Docker Compose: backend + frontend + MySQL + ChromaDB
-- [ ] Jenkins pipeline: build → test → Docker image → push
-- [ ] Health check endpoints (`/actuator/health`)
-- [ ] Environment-based configuration (Spring profiles)
+- [x] Multi-stage Dockerfile for backend (Maven build → JRE runtime)
+- [x] Dockerfile for frontend (Node build → Nginx with SPA routing + API proxy)
+- [x] Docker Compose: backend + frontend + MySQL + Qdrant (with health checks)
+- [x] GitHub Actions CI: build → test → Docker image → compose smoke test
+- [x] Health check endpoints (`/actuator/health` via Spring Boot Actuator)
+- [x] Environment-based configuration (Spring `docker` profile, `.env.example`)
+- [x] `.dockerignore` files for lean images
 
-**Acceptance**: `docker compose up` starts the full stack. Jenkins pipeline runs green.
+**Acceptance**: `docker compose up` starts the full stack. CI pipeline runs green.
 
 ---
 

@@ -3,6 +3,7 @@
  *
  * localStorage provides persistence across page refreshes; React state drives re-renders.
  * On mount, rehydrates from localStorage so the user stays logged in after a refresh.
+ * The user object carries the organization (tenant) the account belongs to.
  */
 import { createContext, useContext, useState, useEffect } from 'react';
 
@@ -17,7 +18,13 @@ export function AuthProvider({ children }) {
       const stored = localStorage.getItem('user');
       if (stored) {
         try {
-          setUser(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          // Sessions created before organizations existed carry no organization: sign in again.
+          if (!parsed.organizationId) {
+            logout();
+          } else {
+            setUser(parsed);
+          }
         } catch {
           logout();
         }
@@ -27,7 +34,12 @@ export function AuthProvider({ children }) {
 
   function login(authResponse) {
     setToken(authResponse.token);
-    const userData = { username: authResponse.username, role: authResponse.role };
+    const userData = {
+      username: authResponse.username,
+      role: authResponse.role,
+      organizationId: authResponse.organizationId,
+      organizationName: authResponse.organizationName,
+    };
     setUser(userData);
     localStorage.setItem('token', authResponse.token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -40,8 +52,10 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('user');
   }
 
+  const canModify = user?.role === 'ENGINEER' || user?.role === 'ADMIN';
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, canModify }}>
       {children}
     </AuthContext.Provider>
   );

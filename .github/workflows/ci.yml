@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  backend:
+    name: Backend — Build & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 20
+        uses: actions/setup-java@v4
+        with:
+          java-version: '20'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build & run unit tests
+        run: mvn verify -B
+
+      - name: Build Docker image
+        run: docker build -t incidentpilot-backend:ci .
+
+  frontend:
+    name: Frontend — Build & Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Build Docker image
+        run: docker build -t incidentpilot-frontend:ci .
+
+  docker-compose:
+    name: Docker Compose — Stack Smoke Test
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env for CI
+        run: |
+          cat > .env << 'EOF'
+          MYSQL_ROOT_PASSWORD=ci_root_password
+          MYSQL_DB=incidentpilot
+          MYSQL_USER=incidentpilot
+          MYSQL_PASSWORD=ci_password
+          AWS_ACCESS_KEY_ID=test
+          AWS_SECRET_ACCESS_KEY=test
+          JWT_SECRET=Y2ktdGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtbG9uZy1lbm91Z2gtZm9yLWhtYWMtc2hhMjU2
+          EOF
+
+      - name: Build and start stack
+        run: docker compose up -d --build
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/actuator/health; then
+              echo " Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 5
+          done
+          echo "Backend did not become healthy"
+          docker compose logs backend
+          exit 1
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:80; then
+              echo " Frontend is up"
+              exit 0
+            fi
+            echo "Waiting for frontend... ($i/10)"
+            sleep 3
+          done
+          echo "Frontend did not respond"
+          docker compose logs frontend
+          exit 1
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

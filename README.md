@@ -2,6 +2,8 @@
 
 AI-powered incident management platform that learns from past outages to help resolve future ones faster.
 
+> **Documentation note:** the application is now three Spring Boot services (incident, ingestion, ai) plus the React frontend, with organization-based multi-tenancy, WebSocket real-time updates and persistent notifications. The sections below predate that split and are partly outdated. The up-to-date references are in [`docs/`](docs): [ARCHITECTURE.md](docs/ARCHITECTURE.md), [API.md](docs/API.md), [CONFIGURATION.md](docs/CONFIGURATION.md) and [PROJECT-STATE.md](docs/PROJECT-STATE.md).
+
 ## Problem
 
 When production goes down, on-call engineers waste 30–60 minutes searching through scattered runbooks, old Slack threads, and past postmortems. IncidentPilot builds an AI-powered knowledge layer over your incident history — when a new incident hits, it surfaces similar past incidents and resolution steps instantly using RAG (Retrieval-Augmented Generation).

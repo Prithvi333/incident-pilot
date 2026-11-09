@@ -60,9 +60,6 @@ docker-compose.override.yml
 # === Spring Boot ===
 spring-shell.log
 
-# === GitHub auto-generated ===
-.github/modernize/
-
 # === Local docs (not pushed) ===
 docs/
 
