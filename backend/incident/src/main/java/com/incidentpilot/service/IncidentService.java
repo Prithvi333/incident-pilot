@@ -1,16 +1,18 @@
 package com.incidentpilot.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.incidentpilot.client.AiServiceClient;
+import com.incidentpilot.config.TenantCache;
 import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
 import com.incidentpilot.dto.IncidentStatsResponse;
 import com.incidentpilot.dto.RagResponse;
+import com.incidentpilot.dto.SimilarMatch;
 import com.incidentpilot.dto.UpdateIncidentRequest;
 import com.incidentpilot.exception.IncidentNotFoundException;
 import com.incidentpilot.exception.InvalidAssigneeException;
 import com.incidentpilot.exception.InvalidTransitionException;
 import com.incidentpilot.exception.NoChangesException;
-import com.incidentpilot.kafka.producer.IngestionEventProducer;
 import com.incidentpilot.model.Incident;
 import com.incidentpilot.model.IncidentStatus;
 import com.incidentpilot.model.Organization;
@@ -20,8 +22,6 @@ import com.incidentpilot.repository.OrganizationRepository;
 import com.incidentpilot.repository.UserRepository;
 import com.incidentpilot.security.CurrentUser;
 import com.incidentpilot.security.TenantPrincipal;
-import event.EventType;
-import event.IncidentDocumentIngestionEvent;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -55,7 +55,8 @@ public class IncidentService {
     private final TimelineEventService timelineEventService;
     private final AuditService auditService;
     private final IncidentActivityService activityService;
-    private final IngestionEventProducer ingestionEventProducer;
+    private final OutboxService outboxService;
+    private final TenantCache cache;
     private final AiServiceClient aiServiceClient;
     private final HttpServletRequest request;
 
@@ -81,15 +82,9 @@ public class IncidentService {
                 .createdBy(me.getUsername())
                 .build());
 
-        ingestionEventProducer.publishAfterCommit(IncidentDocumentIngestionEvent.builder()
-                .organizationId(me.getOrganizationId())
-                .id(saved.getId())
-                .title(saved.getTitle())
-                .eventType(EventType.INCIDENT)
-                .serviceName(saved.getServiceName())
-                .severityName(saved.getSeverity().name())
-                .description(saved.getDescription())
-                .build());
+        // Same transaction as the incident row: the embedding event can never be lost or orphaned
+        outboxService.enqueueUpsert(saved);
+        cache.invalidateIncident(me.getOrganizationId(), saved.getId());
         auditService.log(me.getOrganizationId(), "CREATE", "Incident", saved.getId(), null, saved.getStatus().name());
         activityService.incidentCreated(saved, me.getUsername());
         return IncidentResponse.from(saved);
@@ -97,7 +92,10 @@ public class IncidentService {
 
     @Transactional(readOnly = true)
     public IncidentResponse getIncident(Long id) {
-        return IncidentResponse.from(findOrThrow(id));
+        Long orgId = CurrentUser.require().getOrganizationId();
+        return cache.get(orgId, "incident", String.valueOf(id), TenantCache.DETAIL_TTL,
+                new TypeReference<IncidentResponse>() { },
+                () -> IncidentResponse.from(findOrThrow(id)));
     }
 
     /**
@@ -115,16 +113,61 @@ public class IncidentService {
         }
         String token = authorizationHeader.substring(7);
 
-        return aiServiceClient.findSimilarIncidents(incidentId, incident.getTitle(), incident.getDescription(), token);
+        return withoutDeletedIncidents(
+                aiServiceClient.findSimilarIncidents(incidentId, incident.getTitle(), incident.getDescription(), token));
+    }
+
+    /**
+     * Vector sync is asynchronous, so a just-deleted incident could still be in Qdrant for a moment.
+     * Matches that point to incidents which are no longer active in this organization are dropped here,
+     * so deleted incidents never show up in recommendations regardless of sync lag.
+     */
+    private RagResponse withoutDeletedIncidents(RagResponse response) {
+        if (response == null || response.getSimilarMatches() == null || response.getSimilarMatches().isEmpty()) {
+            return response;
+        }
+        Set<Long> referenced = new java.util.HashSet<>();
+        for (SimilarMatch match : response.getSimilarMatches()) {
+            Long id = incidentIdOf(match.getSource());
+            if (id != null) {
+                referenced.add(id);
+            }
+        }
+        if (referenced.isEmpty()) {
+            return response;
+        }
+        Set<Long> active = new java.util.HashSet<>(
+                incidentRepository.findActiveIds(CurrentUser.require().getOrganizationId(), referenced));
+        response.setSimilarMatches(response.getSimilarMatches().stream()
+                .filter(m -> {
+                    Long id = incidentIdOf(m.getSource());
+                    return id == null || active.contains(id);
+                })
+                .toList());
+        return response;
+    }
+
+    private Long incidentIdOf(String source) {
+        if (source != null && source.startsWith("incident:")) {
+            try {
+                return Long.parseLong(source.substring("incident:".length()));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)
     public List<IncidentResponse> getFilteredIncidents(IncidentStatus status, Severity severity, String search) {
         Long orgId = CurrentUser.require().getOrganizationId();
         String trimmedSearch = (search != null && !search.isBlank()) ? search.trim() : null;
-        return incidentRepository.searchIncidents(orgId, status, severity, trimmedSearch).stream()
-                .map(IncidentResponse::from)
-                .toList();
+        String filterKey = status + "|" + severity + "|" + TenantCache.hash(trimmedSearch);
+        return cache.get(orgId, "list", filterKey, TenantCache.LIST_TTL,
+                new TypeReference<List<IncidentResponse>>() { },
+                () -> incidentRepository.searchIncidents(orgId, status, severity, trimmedSearch).stream()
+                        .map(IncidentResponse::from)
+                        .toList());
     }
 
     /**
@@ -160,6 +203,7 @@ public class IncidentService {
         auditService.log(me.getOrganizationId(), "STATUS_CHANGE", "Incident", updated.getId(),
                 oldStatus.name(), newStatus.name());
         activityService.statusChanged(updated, oldStatus, newStatus, me.getUsername());
+        cache.invalidateIncident(me.getOrganizationId(), updated.getId());
 
         return IncidentResponse.from(updated);
     }
@@ -185,6 +229,7 @@ public class IncidentService {
                         : "Reassigned from " + previous + " to " + newAssignee);
         auditService.log(me.getOrganizationId(), "ASSIGN", "Incident", updated.getId(), previous, newAssignee);
         activityService.assigned(updated, previous, me.getUsername());
+        cache.invalidateIncident(me.getOrganizationId(), updated.getId());
         return IncidentResponse.from(updated);
     }
 
@@ -234,6 +279,10 @@ public class IncidentService {
         }
         auditService.log(me.getOrganizationId(), "UPDATE", "Incident", updated.getId(), null, String.join(",", changed));
 
+        // Semantic content changed: refresh the vector (same point id, so no duplicate in Qdrant)
+        outboxService.enqueueUpsert(updated);
+        cache.invalidateIncident(me.getOrganizationId(), updated.getId());
+
         // P1 is the lowest ordinal, so a lower ordinal means a more severe incident.
         boolean escalated = changed.contains("severity") && updated.getSeverity().ordinal() < oldSeverity.ordinal();
         if (escalated) {
@@ -252,7 +301,13 @@ public class IncidentService {
      */
     @Transactional(readOnly = true)
     public IncidentStatsResponse getStats() {
-        List<Incident> all = incidentRepository.findByOrganizationId(CurrentUser.require().getOrganizationId());
+        Long orgId = CurrentUser.require().getOrganizationId();
+        return cache.get(orgId, "stats", "all", TenantCache.STATS_TTL,
+                new TypeReference<IncidentStatsResponse>() { }, () -> computeStats(orgId));
+    }
+
+    private IncidentStatsResponse computeStats(Long orgId) {
+        List<Incident> all = incidentRepository.findByOrganizationId(orgId);
 
         long total = all.size();
         long active = all.stream().filter(i -> ACTIVE_STATUSES.contains(i.getStatus())).count();
@@ -280,6 +335,26 @@ public class IncidentService {
                 .countBySeverity(bySeverity)
                 .countByStatus(byStatus)
                 .build();
+    }
+
+    /**
+     * Soft delete: the row, timeline and audit history are kept, but the incident disappears from every
+     * query, the dashboard and (via the outbox) from the vector store. Cache entries are invalidated.
+     */
+    @Transactional
+    public void deleteIncident(Long id) {
+        TenantPrincipal me = CurrentUser.require();
+        Incident incident = findOrThrow(id);
+
+        incident.setDeletedAt(LocalDateTime.now());
+        incident.setDeletedBy(me.getUsername());
+        Incident deleted = incidentRepository.saveAndFlush(incident);
+
+        timelineEventService.recordSystemNote(deleted, me.getUsername(), "Incident deleted");
+        auditService.log(me.getOrganizationId(), "DELETE", "Incident", deleted.getId(), deleted.getStatus().name(), null);
+        outboxService.enqueueDelete(deleted);
+        activityService.deleted(deleted, me.getUsername());
+        cache.invalidateIncident(me.getOrganizationId(), deleted.getId());
     }
 
     /** Tenant-scoped lookup: an id that belongs to another organization is reported as not found. */

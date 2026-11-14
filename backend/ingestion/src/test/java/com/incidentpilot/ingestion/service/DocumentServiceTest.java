@@ -3,11 +3,9 @@ package com.incidentpilot.ingestion.service;
 import com.incidentpilot.ingestion.dto.DocumentResponse;
 import com.incidentpilot.ingestion.exception.DocumentNotFoundException;
 import com.incidentpilot.ingestion.exception.InvalidDocumentException;
-import com.incidentpilot.ingestion.kafka.producer.IngestionEventProducer;
 import com.incidentpilot.ingestion.model.Document;
 import com.incidentpilot.ingestion.model.DocumentStatus;
 import com.incidentpilot.ingestion.repository.DocumentRepository;
-import event.BaseEvent;
 import event.DocumentIngestionEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +32,8 @@ class DocumentServiceTest {
 
     @Mock DocumentRepository documentRepository;
     @Mock S3Service s3Service;
-    @Mock IngestionEventProducer ingestionEventProducer;
+    @Mock OutboxService outboxService;
+    @Mock PlatformTransactionManager transactionManager;
     @InjectMocks DocumentService documentService;
 
     @Test
@@ -47,11 +47,13 @@ class DocumentServiceTest {
         ArgumentCaptor<Document> saved = ArgumentCaptor.forClass(Document.class);
         verify(documentRepository, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
         assertThat(saved.getValue().getOrganizationId()).isEqualTo(5L);
-        ArgumentCaptor<BaseEvent> event = ArgumentCaptor.forClass(BaseEvent.class);
-        verify(ingestionEventProducer).publish(event.capture());
+        // the embed event is written to the outbox in the same transaction as the document row
+        ArgumentCaptor<DocumentIngestionEvent> event = ArgumentCaptor.forClass(DocumentIngestionEvent.class);
+        verify(outboxService).enqueue(event.capture());
         assertThat(event.getValue().getOrganizationId()).isEqualTo(5L);
-        assertThat(((DocumentIngestionEvent) event.getValue()).getText()).isEqualTo("restart the pool");
-        assertThat(response.getStatus()).isEqualTo(DocumentStatus.INDEXED);
+        assertThat(event.getValue().getText()).isEqualTo("restart the pool");
+        // INDEXED is only set later by the outbox relay, once Kafka has accepted the event
+        assertThat(response.getStatus()).isEqualTo(DocumentStatus.PROCESSING);
     }
 
     @Test
@@ -65,13 +67,13 @@ class DocumentServiceTest {
     }
 
     @Test
-    void failedPublishMarksTheDocumentFailed() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("file", "notes.txt", "text/plain", "hello".getBytes());
+    void unreadablePdfIsMarkedFailedAndNothingIsQueued() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "broken.pdf", "application/pdf", "not a pdf".getBytes());
         when(s3Service.upload(file, 5L)).thenReturn("https://bucket/k");
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
-        org.mockito.Mockito.doThrow(new RuntimeException("kafka down")).when(ingestionEventProducer).publish(any());
 
         assertThat(documentService.uploadAndIndex(file, 5L).getStatus()).isEqualTo(DocumentStatus.FAILED);
+        verify(outboxService, never()).enqueue(any());
     }
 
     @Test

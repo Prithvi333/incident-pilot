@@ -10,5 +10,6 @@ public enum IncidentEventType {
     INCIDENT_RESOLVED,
     INCIDENT_REOPENED,
     COMMENT_ADDED,
+    INCIDENT_DELETED,
     SLA_BREACH
 }

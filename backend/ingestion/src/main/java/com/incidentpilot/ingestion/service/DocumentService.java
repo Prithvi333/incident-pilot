@@ -3,7 +3,6 @@ package com.incidentpilot.ingestion.service;
 import com.incidentpilot.ingestion.dto.DocumentResponse;
 import com.incidentpilot.ingestion.exception.DocumentNotFoundException;
 import com.incidentpilot.ingestion.exception.InvalidDocumentException;
-import com.incidentpilot.ingestion.kafka.producer.IngestionEventProducer;
 import com.incidentpilot.ingestion.model.Document;
 import com.incidentpilot.ingestion.model.DocumentStatus;
 import com.incidentpilot.ingestion.repository.DocumentRepository;
@@ -15,6 +14,8 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -24,12 +25,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Orchestrates the document upload pipeline: S3 storage → text extraction → vector embedding.
+ * Knowledge-base pipeline: S3 storage → text extraction → transactional outbox → Kafka → AI service
+ * (chunking + embedding in Qdrant).
  *
- * <p>The pipeline is: upload file to S3 for durable storage, then extract its text content
- * and publish it to Kafka so the AI service embeds it into the vector store for RAG retrieval.
- * Every document belongs to the uploader's organization: listing and downloading are scoped to it,
- * and the Kafka event carries the organization so the vector is tagged for tenant-isolated search.
+ * <p>MySQL and Qdrant never share a transaction, so the document row and its outbox event are written
+ * together in ONE database transaction; the outbox relay delivers the event (with retries) and moves the
+ * document to {@code INDEXED} once Kafka accepted it (or {@code FAILED} if it never can). Deleting a
+ * document soft-deletes the row and enqueues a delete event that removes every chunk from Qdrant.
+ * Everything is scoped to the caller's organization.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,39 +43,58 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final S3Service s3Service;
-    private final IngestionEventProducer ingestionEventProducer;
+    private final OutboxService outboxService;
+    private final PlatformTransactionManager transactionManager;
 
     public DocumentResponse uploadAndIndex(MultipartFile file, Long organizationId) throws IOException {
         validate(file);
 
         String fileUrl = s3Service.upload(file, organizationId);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        Document doc = Document.builder()
-                .organizationId(organizationId)
-                .originalFilename(file.getOriginalFilename())
-                .fileUrl(fileUrl)
-                .contentType(file.getContentType())
-                .status(DocumentStatus.PROCESSING)
-                .build();
-        doc = documentRepository.save(doc);
-
+        String content;
         try {
-            String content = extractText(file);
-            ingestionEventProducer.publish(DocumentIngestionEvent.builder()
-                    .organizationId(organizationId)
+            content = extractText(file);
+        } catch (Exception e) {
+            log.error("Failed to extract text from document: {}", file.getOriginalFilename(), e);
+            Document failed = tx.execute(s -> documentRepository.save(newDocument(file, fileUrl, organizationId, DocumentStatus.FAILED)));
+            return DocumentResponse.from(failed);
+        }
+
+        // One transaction: the document row and the event that will embed it
+        Document saved = tx.execute(s -> {
+            Document doc = documentRepository.save(newDocument(file, fileUrl, organizationId, DocumentStatus.PROCESSING));
+            outboxService.enqueue(DocumentIngestionEvent.builder()
                     .eventType(EventType.DOCUMENT)
+                    .organizationId(organizationId)
+                    .documentId(doc.getId())
                     .text(content)
                     .filename(file.getOriginalFilename())
                     .build());
-            doc.setStatus(DocumentStatus.INDEXED);
-            doc.setIndexedAt(LocalDateTime.now());
-        } catch (Exception e) {
-            log.error("Failed to index document: {}", file.getOriginalFilename(), e);
-            doc.setStatus(DocumentStatus.FAILED);
-        }
+            return doc;
+        });
+        return DocumentResponse.from(saved);
+    }
 
-        doc = documentRepository.save(doc);
-        return DocumentResponse.from(doc);
+    /**
+     * Soft-deletes the document and schedules removal of all its chunks from Qdrant. A document of
+     * another organization (or an already deleted one) is reported as not found.
+     */
+    public void deleteDocument(Long id, Long organizationId, String username) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(s -> {
+            Document doc = documentRepository.findByIdAndOrganizationId(id, organizationId)
+                    .orElseThrow(() -> new DocumentNotFoundException(id));
+            doc.setDeletedAt(LocalDateTime.now());
+            doc.setDeletedBy(username);
+            documentRepository.save(doc);
+            outboxService.enqueue(DocumentIngestionEvent.builder()
+                    .eventType(EventType.DOCUMENT_DELETE)
+                    .organizationId(organizationId)
+                    .documentId(doc.getId())
+                    .filename(doc.getOriginalFilename())
+                    .build());
+        });
+        log.info("Document #{} (org {}) deleted by {}", id, organizationId, username);
     }
 
     /** A document id that belongs to another organization is reported as not found. */
@@ -86,6 +108,16 @@ public class DocumentService {
         return documentRepository.findByOrganizationIdOrderByUploadedAtDescIdDesc(organizationId).stream()
                 .map(DocumentResponse::from)
                 .toList();
+    }
+
+    private Document newDocument(MultipartFile file, String fileUrl, Long organizationId, DocumentStatus status) {
+        return Document.builder()
+                .organizationId(organizationId)
+                .originalFilename(file.getOriginalFilename())
+                .fileUrl(fileUrl)
+                .contentType(file.getContentType())
+                .status(status)
+                .build();
     }
 
     /** Server-side check: the frontend restriction alone cannot be trusted. */

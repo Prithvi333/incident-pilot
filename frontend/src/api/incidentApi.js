@@ -53,6 +53,8 @@ export const updateIncident = (id, data) => api.patch(`/incidents/${id}`, data);
 export const assignIncident = (id, assignee) =>
   api.patch(`/incidents/${id}/assignee`, { assignee: assignee || null });
 
+export const deleteIncident = (id) => api.delete(`/incidents/${id}`);
+
 export const getIncidentStats = () => api.get("/incidents/stats");
 
 // ── Organization ──
@@ -76,6 +78,9 @@ export const markAllNotificationsRead = () => api.post("/notifications/read-all"
 // ── Similar Incidents (RAG) ──
 
 export const getSimilarIncidents = (id) => api.get(`/incidents/${id}/similar`);
+
+// Database-only similarity: works even when the AI service is down
+export const getRelatedIncidents = (id) => api.get(`/incidents/${id}/related`);
 
 // ── Timeline ──
 

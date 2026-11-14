@@ -46,6 +46,15 @@ public class DocumentController {
         return ResponseEntity.ok(Map.of("url", presignedUrl));
     }
 
+    /** Soft delete (ENGINEER/ADMIN): removes the document from listings and all its chunks from the vector store. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDocument(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable Long id) {
+        documentService.deleteDocument(id, user.organizationId(), user.username());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping
     public ResponseEntity<List<DocumentResponse>> getAllDocuments(@AuthenticationPrincipal AuthenticatedUser user) {
         return ResponseEntity.ok(documentService.getAllDocuments(user.organizationId()));

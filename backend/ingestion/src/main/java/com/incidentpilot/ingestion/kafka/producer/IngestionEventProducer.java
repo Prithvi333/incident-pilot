@@ -17,6 +17,12 @@ public class IngestionEventProducer {
     @Value("${app.kafka.topics.document-ingestion}")
     private String topic;
 
+    /** Sends and waits for the broker acknowledgement; the key keeps one document's events ordered. */
+    public void publishSync(String key, BaseEvent event) throws Exception {
+        kafkaTemplate.send(topic, key, event).get(5, java.util.concurrent.TimeUnit.SECONDS);
+        log.info("Published {} event {} to topic {}", event.getEventType(), key, topic);
+    }
+
     public void publish(BaseEvent event) {
         kafkaTemplate.send(topic, event.getEventId(), event)
                 .whenComplete((result, exception) -> {

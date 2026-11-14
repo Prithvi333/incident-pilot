@@ -94,9 +94,9 @@ public class NotificationService {
         PageRequest page = PageRequest.of(0, Math.max(1, Math.min(limit, MAX_PAGE_SIZE)));
         List<Notification> items = unreadOnly
                 ? notificationRepository.findByRecipientIdAndOrganizationIdAndReadFalseOrderByCreatedAtDescIdDesc(
-                        me.getUserId(), me.getOrganizationId(), page)
+                me.getUserId(), me.getOrganizationId(), page)
                 : notificationRepository.findByRecipientIdAndOrganizationIdOrderByCreatedAtDescIdDesc(
-                        me.getUserId(), me.getOrganizationId(), page);
+                me.getUserId(), me.getOrganizationId(), page);
         return items.stream().map(NotificationResponse::from).toList();
     }
 

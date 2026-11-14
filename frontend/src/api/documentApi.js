@@ -41,4 +41,6 @@ export const uploadDocument = (file) => {
 
 export const getDocuments = () => documentApi.get("");
 
+export const deleteDocument = (id) => documentApi.delete(`/${id}`);
+
 export default documentApi;

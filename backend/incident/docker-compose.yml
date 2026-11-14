@@ -1,12 +1,16 @@
 
 services:
+
+  # ==========================================
+  # MySQL Database
+  # ==========================================
   mysql:
     image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
     ports:
-      - "${MYSQL_PORT:-3307}:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -19,6 +23,9 @@ services:
       retries: 10
       start_period: 30s
 
+  # ==========================================
+  # Kafka
+  # ==========================================
   kafka:
     image: apache/kafka:4.1.0
     hostname: kafka
@@ -44,6 +51,26 @@ services:
       - incidentpilot-network
     restart: unless-stopped
 
+  # ==========================================
+  # IncidentPilot Backend
+  # ==========================================
+  # Read cache (incident details/lists, dashboard stats, members). Optional: the app falls back to MySQL.
+  redis:
+    image: redis:7-alpine
+    command: ["sh", "-c", "exec redis-server --appendonly yes $${REDIS_PASSWORD:+--requirepass \"$$REDIS_PASSWORD\"}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    networks:
+      - incidentpilot-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ${REDIS_PASSWORD:+-a \"$$REDIS_PASSWORD\"} ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   incident:
     build:
       context: .
@@ -51,30 +78,56 @@ services:
     ports:
       - "${INCIDENT_PORT:-8080}:8080"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+
+      # Application
+      INCIDENT_PORT: 8080
+      LOG_FILE: ${LOG_FILE:-logs/incidentpilot.log}
+
+      # MySQL
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-incidentpilot}
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-incidentpilot}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-root}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-      # Shared HMAC key: must be identical in the incident, ingestion and ai services
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (base64) in .env}
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      # The AI service joins the same Docker network (see backend/ai/docker-compose.yml)
-      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai:8081}
-      # Browser origins allowed for CORS + WebSocket handshake (add your frontend's public origin)
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:*,http://127.0.0.1:*}
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DOCUMENT_INGESTION_TOPIC: ${DOCUMENT_INGESTION_TOPIC:-incidentpilot.document-ingestion}
+
+      # AI Service
+      AI_SERVICE_URL: http://ai:8081
+
+      # CORS / WebSocket
+      ALLOWED_ORIGINS: "${ALLOWED_ORIGINS}"
+
     networks:
       - incidentpilot-network
+
     depends_on:
       mysql:
         condition: service_healthy
       kafka:
         condition: service_started
+
     restart: unless-stopped
 
+# ==========================================
+# Docker Network
+# ==========================================
 networks:
   incidentpilot-network:
     name: incidentpilot-network
     driver: bridge
 
+# ==========================================
+# Persistent Volumes
+# ==========================================
 volumes:
   mysql_data:
   kafka_data:
+  redis_data:

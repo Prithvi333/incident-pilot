@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   getIncident,
   updateIncidentStatus,
   updateIncident,
   assignIncident,
+  deleteIncident,
   getMembers,
   getTimeline,
   addTimelineEvent,
@@ -30,6 +31,8 @@ import {
   Clock,
   RotateCcw,
   Shield,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -115,6 +118,9 @@ export default function IncidentDetail() {
   const [members, setMembers] = useState([]);
   const [saving, setSaving] = useState(false);
   const { canModify } = useAuth();
+  const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', description: '', serviceName: '' });
 
   const fetchData = useCallback(async () => {
     try {
@@ -144,6 +150,10 @@ export default function IncidentDetail() {
   const refreshTimer = useRef(null);
   useIncidentEvents((event) => {
     if (String(event.incidentId) !== String(id)) return;
+    if (event.type === 'INCIDENT_DELETED') {
+      navigate('/incidents');
+      return;
+    }
     clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(fetchData, 300);
   });
@@ -183,6 +193,49 @@ export default function IncidentDetail() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to change severity.');
     } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEditing() {
+    setEditForm({
+      title: incident.title || '',
+      description: incident.description || '',
+      serviceName: incident.serviceName || '',
+    });
+    setEditing(true);
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+    if (!editForm.title.trim() || !editForm.serviceName.trim()) {
+      setError('Title and service name are required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateIncident(id, {
+        title: editForm.title,
+        description: editForm.description,
+        serviceName: editForm.serviceName,
+      });
+      setEditing(false);
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.errors?.join(', ') || err.response?.data?.error || 'Failed to update incident.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('Delete this incident? It disappears from lists, dashboards and AI recommendations. Its history is kept.')) return;
+    setSaving(true);
+    try {
+      await deleteIncident(id);
+      navigate('/incidents');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete incident.');
       setSaving(false);
     }
   }
@@ -472,6 +525,75 @@ export default function IncidentDetail() {
               )}
             </dl>
           </div>
+
+          {/* Edit / delete (ENGINEER and ADMIN) */}
+          {canModify && (
+            <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-4">Manage</h3>
+              {editing ? (
+                <form onSubmit={handleSaveEdit} className="space-y-3">
+                  <input
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    placeholder="Title"
+                    maxLength={255}
+                    className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus-ring"
+                  />
+                  <input
+                    type="text"
+                    value={editForm.serviceName}
+                    onChange={(e) => setEditForm({ ...editForm, serviceName: e.target.value })}
+                    placeholder="Service"
+                    maxLength={100}
+                    className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus-ring"
+                  />
+                  <textarea
+                    rows={4}
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    placeholder="Description"
+                    maxLength={5000}
+                    className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus-ring resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-40 transition-colors"
+                    >
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      className="flex-1 py-2.5 rounded-lg text-sm font-medium text-zinc-400 border border-white/[0.08] hover:text-zinc-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={startEditing}
+                    className="inline-flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium text-zinc-300 border border-white/[0.08] hover:bg-white/[0.04] transition-colors"
+                  >
+                    <Pencil size={14} />
+                    Edit details
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={saving}
+                    className="inline-flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 disabled:opacity-40 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Delete incident
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quick stats */}
           <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">

@@ -19,7 +19,7 @@ public class DocumentIngestionConsumer {
 
     @KafkaListener(
             topics = "${app.kafka.topics.document-ingestion}",
-            containerFactory = "incidentDocumentKafkaListenerContainerFactory"
+            containerFactory = "${app.kafka.consumer.container-factory}"
     )
     public void consume(BaseEvent event) {
 
@@ -39,7 +39,8 @@ public class DocumentIngestionConsumer {
                             documentEvent.getText(),
                             documentEvent.getFilename(),
                             documentEvent.getOrganizationId(),
-                            documentEvent.getEventId()
+                            documentEvent.getEventId(),
+                            documentEvent.getDocumentId()
                     );
                 } else {
                     log.warn("Invalid payload class for DOCUMENT event");
@@ -51,6 +52,22 @@ public class DocumentIngestionConsumer {
                     ragService.embedIncident(incidentEvent);
                 } else {
                     log.warn("Invalid payload class for INCIDENT event");
+                }
+            }
+
+            case INCIDENT_DELETE -> {
+                if (event instanceof IncidentDocumentIngestionEvent incidentEvent) {
+                    ragService.deleteIncident(incidentEvent.getOrganizationId(), incidentEvent.getId());
+                } else {
+                    log.warn("Invalid payload class for INCIDENT_DELETE event");
+                }
+            }
+
+            case DOCUMENT_DELETE -> {
+                if (event instanceof DocumentIngestionEvent documentEvent) {
+                    ragService.deleteDocument(documentEvent.getOrganizationId(), documentEvent.getDocumentId());
+                } else {
+                    log.warn("Invalid payload class for DOCUMENT_DELETE event");
                 }
             }
         }

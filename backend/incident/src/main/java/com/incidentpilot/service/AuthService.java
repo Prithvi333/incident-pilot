@@ -1,5 +1,6 @@
 package com.incidentpilot.service;
 
+import com.incidentpilot.config.TenantCache;
 import com.incidentpilot.dto.AuthResponse;
 import com.incidentpilot.dto.LoginRequest;
 import com.incidentpilot.dto.RegisterRequest;
@@ -41,6 +42,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final TenantCache cache;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -80,6 +82,7 @@ public class AuthService {
                 .organization(organization)
                 .build());
 
+        cache.invalidateMembers(organization.getId());
         return toResponse(user);
     }
 

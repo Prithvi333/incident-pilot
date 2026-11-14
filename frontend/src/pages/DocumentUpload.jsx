@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
-import documentApi, { uploadDocument, getDocuments } from "../api/documentApi";
+import documentApi, { uploadDocument, getDocuments, deleteDocument } from "../api/documentApi";
+import { useAuth } from "../context/AuthContext";
 import {
   Upload,
   FileText,
@@ -11,6 +12,7 @@ import {
   Loader2,
   Inbox,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -65,6 +67,7 @@ function DocStatusBadge({ status }) {
 }
 
 export default function DocumentUpload() {
+  const { canModify } = useAuth();
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -98,6 +101,19 @@ export default function DocumentUpload() {
       setError("Failed to upload document.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleDelete(doc) {
+    if (!window.confirm(`Delete "${doc.originalFilename}"? It will no longer be used for AI suggestions.`)) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      await deleteDocument(doc.id);
+      setSuccess(`"${doc.originalFilename}" deleted.`);
+      await fetchDocuments();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to delete document.");
     }
   }
 
@@ -271,6 +287,16 @@ export default function DocumentUpload() {
                   </p>
                 </div>
                 <DocStatusBadge status={doc.status} />
+                {canModify && (
+                  <button
+                    onClick={() => handleDelete(doc)}
+                    className="shrink-0 p-2.5 -mr-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    title="Delete document"
+                    aria-label={`Delete ${doc.originalFilename}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             ))}
           </div>

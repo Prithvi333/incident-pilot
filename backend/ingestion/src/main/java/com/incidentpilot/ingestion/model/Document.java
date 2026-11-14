@@ -50,6 +50,17 @@ public class Document {
 
     private LocalDateTime indexedAt;
 
+    /** Soft delete: set when the document is deleted; its vectors are removed asynchronously. */
+    private LocalDateTime deletedAt;
+
+    @Column(length = 100)
+    private String deletedBy;
+
+    /** Optimistic lock: the upload pipeline, outbox relay and delete may touch the same row. */
+    @Version
+    @Column(columnDefinition = "BIGINT NOT NULL DEFAULT 0")
+    private long version;
+
     @PrePersist
     protected void onCreate() {
         this.uploadedAt = LocalDateTime.now();

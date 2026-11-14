@@ -1,5 +1,9 @@
 
 services:
+
+  # ==========================================
+  # Ollama
+  # ==========================================
   ollama:
     image: ollama/ollama:latest
     container_name: incidentpilot-ollama
@@ -11,7 +15,9 @@ services:
       - incidentpilot-network
     restart: unless-stopped
 
-  # Pull models automatically when Ollama is available
+  # ==========================================
+  # Ollama Model Initialization
+  # ==========================================
   ollama-init:
     image: ollama/ollama:latest
     container_name: incidentpilot-ollama-init
@@ -26,6 +32,7 @@ services:
           echo "Waiting for Ollama..."
           sleep 3
         done
+
         echo "Pulling chat model..."
         ollama pull "$${OLLAMA_CHAT_MODEL}" &&
         echo "Pulling embedding model..." &&
@@ -36,56 +43,104 @@ services:
       - ollama
     restart: "no"
 
+  # ==========================================
+  # AI Service
+  # ==========================================
   ai:
     build:
       context: .
       dockerfile: Dockerfile
+
     container_name: incidentpilot-ai
+
     ports:
       - "${AI_PORT:-8081}:8081"
+
     environment:
-      # Qdrant
-      QDRANT_HOST: ${QDRANT_HOST:-qdrant}
-      QDRANT_PORT: ${QDRANT_PORT:-6334}
 
-      # Ollama
-      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
-      SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:1.7b}
-      SPRING_AI_OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text:latest}
+      # Application
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-ai}
+      AI_SERVER_PORT: 8081
 
-      # Kafka (the broker is defined in backend/incident/docker-compose.yml)
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      # Qdrant Vector Store
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6334
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-incident-pilot}
+      QDRANT_INITIALIZE_SCHEMA: ${QDRANT_INITIALIZE_SCHEMA:-true}
 
-      # Shared HMAC key: must be identical in the incident, ingestion and ai services
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (base64) in .env}
+      # Ollama Connection
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:1.7b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text:latest}
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DOCUMENT_INGESTION_TOPIC: ${DOCUMENT_INGESTION_TOPIC:-incidentpilot.document-ingestion}
+
+      # Kafka Consumer
+      KAFKA_CONSUMER_CONTAINER_FACTORY: ${KAFKA_CONSUMER_CONTAINER_FACTORY:-incidentDocumentKafkaListenerContainerFactory}
+      KAFKA_CONSUMER_GROUP_ID: ${KAFKA_CONSUMER_GROUP_ID:-incidentpilot-ai-group}
+      KAFKA_AUTO_OFFSET_RESET: ${KAFKA_AUTO_OFFSET_RESET:-earliest}
+      KAFKA_TRUSTED_PACKAGES: ${KAFKA_TRUSTED_PACKAGES:-com.incidentpilot.ai.event}
+
+      # JWT Authentication
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+
+      # RAG Document Chunking
+      RAG_CHUNK_SIZE: ${RAG_CHUNK_SIZE:-300}
+      RAG_MIN_CHUNK_SIZE: ${RAG_MIN_CHUNK_SIZE:-100}
+      RAG_MIN_CHUNK_LENGTH_TO_EMBED: ${RAG_MIN_CHUNK_LENGTH_TO_EMBED:-5}
+      RAG_MAX_CHUNKS: ${RAG_MAX_CHUNKS:-10000}
+      RAG_KEEP_SEPARATOR: ${RAG_KEEP_SEPARATOR:-true}
+
+      # Resilience4j Circuit Breaker
+      AI_CB_SLIDING_WINDOW_SIZE: ${AI_CB_SLIDING_WINDOW_SIZE:-5}
+      AI_CB_FAILURE_RATE_THRESHOLD: ${AI_CB_FAILURE_RATE_THRESHOLD:-50}
+      AI_CB_WAIT_DURATION: ${AI_CB_WAIT_DURATION:-30s}
+      AI_CB_HALF_OPEN_CALLS: ${AI_CB_HALF_OPEN_CALLS:-2}
 
     networks:
       - incidentpilot-network
+
     depends_on:
       qdrant:
         condition: service_started
       ollama-init:
         condition: service_completed_successfully
+
     restart: unless-stopped
 
-  # Vector store for RAG (gRPC 6334 is what the ai service uses)
+  # ==========================================
+  # Qdrant Vector Database
+  # ==========================================
   qdrant:
     image: qdrant/qdrant:latest
     container_name: incidentpilot-qdrant
+
     ports:
       - "${QDRANT_HTTP_PORT:-6333}:6333"
       - "${QDRANT_GRPC_PORT:-6334}:6334"
+
     volumes:
       - qdrant_data:/qdrant/storage
+
     networks:
       - incidentpilot-network
+
     restart: unless-stopped
 
+# ==========================================
+# Docker Network
+# ==========================================
 networks:
   incidentpilot-network:
     external: true
     name: incidentpilot-network
 
+# ==========================================
+# Persistent Volumes
+# ==========================================
 volumes:
   ollama_data:
   qdrant_data:

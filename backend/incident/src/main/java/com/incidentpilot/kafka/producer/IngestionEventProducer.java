@@ -26,6 +26,15 @@ public class IngestionEventProducer {
         TransactionUtils.afterCommit(() -> publish(event));
     }
 
+    /**
+     * Sends and waits for the broker's acknowledgement (used by the outbox relay, which needs to know
+     * whether delivery succeeded). The key keeps all events of one aggregate on one partition, in order.
+     */
+    public void publishSync(String key, BaseEvent event) throws Exception {
+        kafkaTemplate.send(topic, key, event).get(5, java.util.concurrent.TimeUnit.SECONDS);
+        log.info("Published {} event {} to topic {}", event.getEventType(), key, topic);
+    }
+
     public void publish(BaseEvent event) {
         kafkaTemplate.send(topic, event.getEventId(), event)
                 .whenComplete((result, exception) -> {

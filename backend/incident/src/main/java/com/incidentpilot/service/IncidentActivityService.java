@@ -126,6 +126,11 @@ public class IncidentActivityService {
         }
     }
 
+    /** Lists/dashboards refresh live; no notification (the incident is gone from everyone view). */
+    public void deleted(Incident incident, String actor) {
+        eventPublisher.publish(IncidentEventType.INCIDENT_DELETED, incident, actor, Map.of());
+    }
+
     public void commentAdded(Incident incident, TimelineEvent entry, String actor) {
         String preview = entry.getMessage().length() > COMMENT_PREVIEW_LENGTH
                 ? entry.getMessage().substring(0, COMMENT_PREVIEW_LENGTH) + "…" : entry.getMessage();
