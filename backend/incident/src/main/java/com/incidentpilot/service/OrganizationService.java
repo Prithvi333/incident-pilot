@@ -1,5 +1,7 @@
 package com.incidentpilot.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.incidentpilot.config.TenantCache;
 import com.incidentpilot.dto.MemberResponse;
 import com.incidentpilot.dto.OrganizationResponse;
 import com.incidentpilot.exception.ResourceNotFoundException;
@@ -22,6 +24,7 @@ public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final TenantCache cache;
 
     @Transactional(readOnly = true)
     public OrganizationResponse getCurrentOrganization() {
@@ -40,8 +43,11 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public List<MemberResponse> getMembers() {
         TenantPrincipal me = CurrentUser.require();
-        return userRepository.findByOrganizationIdOrderByUsernameAsc(me.getOrganizationId()).stream()
-                .map(MemberResponse::from)
-                .toList();
+        Long orgId = me.getOrganizationId();
+        return cache.get(orgId, "members", "all", TenantCache.MEMBERS_TTL,
+                new TypeReference<List<MemberResponse>>() { },
+                () -> userRepository.findByOrganizationIdOrderByUsernameAsc(orgId).stream()
+                        .map(MemberResponse::from)
+                        .toList());
     }
 }

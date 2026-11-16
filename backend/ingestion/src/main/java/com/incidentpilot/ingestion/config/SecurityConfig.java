@@ -43,6 +43,8 @@ public class SecurityConfig {
                         .hasAnyRole("VIEWER", "ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/documents/**")
                         .hasAnyRole("ENGINEER", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/documents/**")
+                        .hasAnyRole("ENGINEER", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(

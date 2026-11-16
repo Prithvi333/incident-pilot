@@ -74,6 +74,12 @@ public class Incident {
 
     private LocalDateTime updatedAt;
 
+    /** Soft delete: set when the incident is deleted. Deleted incidents stay in the database (history, audit). */
+    private LocalDateTime deletedAt;
+
+    @Column(length = 100)
+    private String deletedBy;
+
     /** Set when the incident moves to RESOLVED status */
     private LocalDateTime resolvedAt;
 

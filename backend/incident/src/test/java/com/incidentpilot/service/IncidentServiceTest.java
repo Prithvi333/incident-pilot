@@ -8,7 +8,7 @@ import com.incidentpilot.dto.UpdateIncidentRequest;
 import com.incidentpilot.exception.IncidentNotFoundException;
 import com.incidentpilot.exception.InvalidAssigneeException;
 import com.incidentpilot.exception.InvalidTransitionException;
-import com.incidentpilot.kafka.producer.IngestionEventProducer;
+import com.incidentpilot.config.TenantCache;
 import com.incidentpilot.model.Incident;
 import com.incidentpilot.model.IncidentStatus;
 import com.incidentpilot.model.Organization;
@@ -17,8 +17,6 @@ import com.incidentpilot.model.Severity;
 import com.incidentpilot.repository.IncidentRepository;
 import com.incidentpilot.repository.OrganizationRepository;
 import com.incidentpilot.repository.UserRepository;
-import event.BaseEvent;
-import event.IncidentDocumentIngestionEvent;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,11 +30,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,7 +52,8 @@ class IncidentServiceTest {
     @Mock TimelineEventService timelineEventService;
     @Mock AuditService auditService;
     @Mock IncidentActivityService activityService;
-    @Mock IngestionEventProducer ingestionEventProducer;
+    @Mock OutboxService outboxService;
+    @Mock TenantCache cache;
     @Mock AiServiceClient aiServiceClient;
     @Mock HttpServletRequest httpRequest;
     @InjectMocks IncidentService incidentService;
@@ -61,6 +63,9 @@ class IncidentServiceTest {
     @BeforeEach
     void loginAsAcmeEngineer() {
         TestSecurity.login(TestSecurity.user(10, "alice", Role.ENGINEER, acme));
+        // the cache is a pass-through here: always run the loader (the database lookup)
+        lenient().when(cache.get(any(), anyString(), anyString(), any(), any(), any()))
+                .thenAnswer(inv -> ((Supplier<?>) inv.getArgument(5)).get());
     }
 
     @AfterEach
@@ -98,11 +103,8 @@ class IncidentServiceTest {
         assertThat(saved.getValue().getStatus()).isEqualTo(IncidentStatus.TRIGGERED);
         assertThat(response.getTitle()).isEqualTo("DB down");
 
-        // the Kafka event carries the tenant so the AI service can tag the vector
-        ArgumentCaptor<BaseEvent> event = ArgumentCaptor.forClass(BaseEvent.class);
-        verify(ingestionEventProducer).publishAfterCommit(event.capture());
-        assertThat(event.getValue()).isInstanceOf(IncidentDocumentIngestionEvent.class);
-        assertThat(event.getValue().getOrganizationId()).isEqualTo(1L);
+        // the embedding event goes through the transactional outbox (same transaction as the incident)
+        verify(outboxService).enqueueUpsert(any(Incident.class));
         verify(activityService).incidentCreated(any(Incident.class), eq("alice"));
     }
 

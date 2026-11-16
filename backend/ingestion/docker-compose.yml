@@ -1,30 +1,61 @@
 
 services:
+
+  # ==========================================
+  # Ingestion Service
+  # ==========================================
   ingestion:
     build:
       context: .
       dockerfile: Dockerfile
+
     container_name: incidentpilot-ingestion
+
     ports:
       - "${INGESTION_PORT:-8082}:8082"
+
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:mysql://${MYSQL_HOST:-mysql}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
 
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      # Application
+      INGESTION_PORT: 8082
 
-      # Shared HMAC key: must be identical in the incident, ingestion and ai services
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (base64) in .env}
+      # MySQL Database
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: ${MYSQL_DB:-incidentpilot}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
 
-      # S3 document storage (values come from your untracked .env; nothing is hardcoded here)
+      # JPA / Hibernate
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DOCUMENT_INGESTION_TOPIC: ${DOCUMENT_INGESTION_TOPIC:-incidentpilot.document-ingestion}
+
+      # JWT Authentication
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+
+      # File Upload Limits
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-10MB}
+      MAX_REQUEST_SIZE: ${MAX_REQUEST_SIZE:-10MB}
+
+      # AWS S3
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-incident-pilot-docs121}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+
+      # AWS Credentials
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION:-ap-south-1}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-incident-pilot-docs}
+
+      # AI Service
+      AI_SERVICE_URL: http://ai:8081
 
     networks:
       - incidentpilot-network
+
     restart: unless-stopped
 
 networks:

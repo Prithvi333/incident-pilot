@@ -40,10 +40,44 @@ const NAV_SECTIONS = [
   },
 ];
 
-/** ADMIN-only: shows the organization's invite code so teammates can register into it. */
+/**
+ * Copies text to the clipboard. navigator.clipboard only exists on HTTPS/localhost, so on plain-HTTP
+ * deployments (and some mobile browsers) fall back to a hidden textarea + execCommand("copy").
+ */
+async function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to the legacy path
+    }
+  }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.top = '0';
+  area.style.left = '-9999px';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  area.setSelectionRange(0, text.length); // needed on iOS
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(area);
+  return ok;
+}
+
+/** ADMIN-only: shows the organization invite code so teammates can register into it. */
 function InviteCode() {
   const [code, setCode] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState(null); // 'copied' | 'failed' | null
 
   useEffect(() => {
     getOrganization()
@@ -54,30 +88,42 @@ function InviteCode() {
   if (!code) return null;
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard unavailable (e.g. non-HTTPS); the code is still visible to copy by hand
-    }
+    const ok = await copyToClipboard(code);
+    setFeedback(ok ? 'copied' : 'failed');
+    setTimeout(() => setFeedback(null), 2500);
   }
 
   return (
     <div className="mx-3 mb-3 px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 mb-1">Invite code</p>
-      <button
-        onClick={copy}
-        className="w-full flex items-center justify-between gap-2 text-left"
-        title="Copy invite code"
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] text-zinc-400 truncate select-all">{code}</span>
+        <button
+          onClick={copy}
+          className="p-2 -m-1 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06] transition-colors shrink-0"
+          title="Copy invite code"
+          aria-label="Copy invite code"
+        >
+          {feedback === 'copied' ? (
+            <Check size={14} className="text-emerald-400" />
+          ) : (
+            <Copy size={14} />
+          )}
+        </button>
+      </div>
+      <p
+        role="status"
+        className={
+          'text-[11px] mt-1 min-h-[1rem] ' +
+          (feedback === 'copied' ? 'text-emerald-400' : feedback === 'failed' ? 'text-rose-400' : 'text-transparent')
+        }
       >
-        <span className="font-mono text-[11px] text-zinc-400 truncate">{code}</span>
-        {copied ? (
-          <Check size={13} className="text-emerald-400 shrink-0" />
-        ) : (
-          <Copy size={13} className="text-zinc-500 shrink-0" />
-        )}
-      </button>
+        {feedback === 'copied'
+          ? 'Invite code copied'
+          : feedback === 'failed'
+            ? 'Could not copy - select the code and copy it manually'
+            : '.'}
+      </p>
     </div>
   );
 }

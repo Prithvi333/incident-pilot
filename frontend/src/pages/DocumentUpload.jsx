@@ -1,5 +1,13 @@
 import { useEffect, useState, useRef } from "react";
-import documentApi, { uploadDocument, getDocuments } from "../api/documentApi";
+
+import documentApi, {
+  uploadDocument,
+  getDocuments,
+  deleteDocument,
+} from "../api/documentApi";
+
+import { useAuth } from "../context/AuthContext";
+
 import {
   Upload,
   FileText,
@@ -11,7 +19,9 @@ import {
   Loader2,
   Inbox,
   Sparkles,
+  Trash2,
 } from "lucide-react";
+
 import clsx from "clsx";
 
 const STATUS_CONFIG = {
@@ -49,6 +59,7 @@ const STATUS_CONFIG = {
 function DocStatusBadge({ status }) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.UPLOADED;
   const Icon = config.icon;
+
   return (
     <span
       className={clsx(
@@ -65,12 +76,18 @@ function DocStatusBadge({ status }) {
 }
 
 export default function DocumentUpload() {
+  const { canModify } = useAuth();
+
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+
   const fileInputRef = useRef(null);
+
+  const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function fetchDocuments() {
     try {
@@ -85,19 +102,79 @@ export default function DocumentUpload() {
     fetchDocuments();
   }, []);
 
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function waitForIndexing(documentId) {
+    const maxAttempts = 30;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const res = await getDocuments();
+
+      const updatedDocument = res.data.find((doc) => doc.id === documentId);
+
+      if (updatedDocument) {
+        setDocuments(res.data);
+
+        if (updatedDocument.status === "INDEXED") {
+          return true;
+        }
+
+        if (updatedDocument.status === "FAILED") {
+          throw new Error("Document indexing failed.");
+        }
+      }
+
+      await delay(2000);
+    }
+
+    throw new Error("Document indexing is taking longer than expected.");
+  }
+
   async function processFile(file) {
     if (!file) return;
+
     setUploading(true);
     setError(null);
     setSuccess(null);
+
     try {
-      await uploadDocument(file);
-      setSuccess(`"${file.name}" uploaded and indexed successfully.`);
+      const res = await uploadDocument(file);
+
+      const documentId = res.data.id;
+
+      // Fetch immediately to show PROCESSING status
       await fetchDocuments();
-    } catch {
-      setError("Failed to upload document.");
+
+      // Wait until Kafka consumer finishes indexing
+      await waitForIndexing(documentId);
+
+      setSuccess(`"${file.name}" uploaded and indexed successfully.`);
+    } catch (err) {
+      setError(err.message || "Failed to upload document.");
+      await fetchDocuments();
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!documentToDelete || deleting) return;
+
+    setError(null);
+    setSuccess(null);
+    setDeleting(true);
+
+    try {
+      await deleteDocument(documentToDelete.id);
+
+      setSuccess(`"${documentToDelete.originalFilename}" deleted.`);
+      setDocumentToDelete(null);
+
+      await fetchDocuments();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to delete document.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -109,7 +186,9 @@ export default function DocumentUpload() {
   function handleDrop(e) {
     e.preventDefault();
     setDragOver(false);
+
     const file = e.dataTransfer.files[0];
+
     if (
       file &&
       (file.name.endsWith(".txt") ||
@@ -130,10 +209,12 @@ export default function DocumentUpload() {
           <div className="p-1.5 rounded-lg bg-violet-500/10">
             <BookOpen size={18} className="text-violet-400" />
           </div>
+
           <h1 className="text-2xl font-bold text-zinc-50 tracking-tight">
             Knowledge Base
           </h1>
         </div>
+
         <p className="text-sm text-zinc-500 mt-2 max-w-xl">
           Upload postmortems and runbooks to train the AI. When new incidents
           occur, it will suggest resolutions based on similar past events.
@@ -189,6 +270,7 @@ export default function DocumentUpload() {
               <p className="text-sm font-medium text-zinc-300 mb-1">
                 Click to upload or drop a file here
               </p>
+
               <p className="text-xs text-zinc-600">
                 Supports .txt, .md, and .pdf files
               </p>
@@ -203,6 +285,7 @@ export default function DocumentUpload() {
             <span className="text-sm text-emerald-400">{success}</span>
           </div>
         )}
+
         {error && (
           <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 inline-flex items-center gap-2">
             <XCircle size={14} className="text-rose-400" />
@@ -230,9 +313,11 @@ export default function DocumentUpload() {
             <div className="p-3 rounded-full bg-zinc-700/50 mb-3">
               <Inbox size={24} className="text-zinc-500" />
             </div>
+
             <p className="text-sm font-medium text-zinc-400">
               No documents yet
             </p>
+
             <p className="text-xs text-zinc-600 mt-1">
               Upload postmortems and runbooks to get AI-powered suggestions
             </p>
@@ -247,6 +332,7 @@ export default function DocumentUpload() {
                 <div className="w-9 h-9 rounded-lg bg-zinc-700/50 flex items-center justify-center shrink-0">
                   <FileText size={16} className="text-zinc-400" />
                 </div>
+
                 <div className="flex-1 min-w-0">
                   <a
                     href="#"
@@ -261,6 +347,7 @@ export default function DocumentUpload() {
                     {doc.originalFilename}
                     <ExternalLink size={12} className="text-zinc-600" />
                   </a>
+
                   <p className="text-[11px] text-zinc-600 mt-0.5">
                     {new Date(doc.uploadedAt).toLocaleString("en-US", {
                       month: "short",
@@ -270,12 +357,93 @@ export default function DocumentUpload() {
                     })}
                   </p>
                 </div>
+
                 <DocStatusBadge status={doc.status} />
+
+                {canModify && (
+                  <button
+                    onClick={() => setDocumentToDelete(doc)}
+                    className="shrink-0 inline-flex items-center gap-1.5 p-2.5 -mr-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    title="Delete document"
+                    aria-label={`Delete ${doc.originalFilename}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Custom delete confirmation modal */}
+      {documentToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => !deleting && setDocumentToDelete(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-document-title"
+            aria-describedby="delete-document-description"
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl shadow-black/40"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10">
+              <Trash2 size={22} className="text-rose-400" />
+            </div>
+
+            <h2
+              id="delete-document-title"
+              className="text-lg font-semibold text-zinc-100"
+            >
+              Delete document?
+            </h2>
+
+            <p
+              id="delete-document-description"
+              className="mt-2 text-sm leading-6 text-zinc-400"
+            >
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-zinc-200">
+                "{documentToDelete.originalFilename}"
+              </span>
+              ? It will no longer be available for AI suggestions.
+            </p>
+
+            <div className="mt-7 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDocumentToDelete(null)}
+                disabled={deleting}
+                className="rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    Delete document
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

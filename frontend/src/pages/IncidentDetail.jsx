@@ -1,19 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+
 import {
   getIncident,
   updateIncidentStatus,
   updateIncident,
   assignIncident,
+  deleteIncident,
   getMembers,
   getTimeline,
   addTimelineEvent,
-} from '../api/incidentApi';
-import { useAuth } from '../context/AuthContext';
-import { useIncidentEvents, useResync } from '../context/RealtimeContext';
-import StatusBadge from '../components/StatusBadge';
-import SeverityBadge from '../components/SeverityBadge';
-import SimilarIncidents from '../components/SimilarIncidents';
+} from "../api/incidentApi";
+
+import { useAuth } from "../context/AuthContext";
+import { useIncidentEvents, useResync } from "../context/RealtimeContext";
+
+import StatusBadge from "../components/StatusBadge";
+import SeverityBadge from "../components/SeverityBadge";
+import SimilarIncidents from "../components/SimilarIncidents";
+
 import {
   ArrowLeft,
   Server,
@@ -30,35 +35,38 @@ import {
   Clock,
   RotateCcw,
   Shield,
-} from 'lucide-react';
-import clsx from 'clsx';
+  Pencil,
+  Trash2,
+} from "lucide-react";
+
+import clsx from "clsx";
 
 const NEXT_STATUS = {
-  TRIGGERED: 'ACKNOWLEDGED',
-  ACKNOWLEDGED: 'INVESTIGATING',
-  INVESTIGATING: 'RESOLVED',
-  RESOLVED: 'POSTMORTEM',
+  TRIGGERED: "ACKNOWLEDGED",
+  ACKNOWLEDGED: "INVESTIGATING",
+  INVESTIGATING: "RESOLVED",
+  RESOLVED: "POSTMORTEM",
 };
 
 const ACTION_LABELS = {
-  ACKNOWLEDGED: 'Acknowledge',
-  INVESTIGATING: 'Start Investigation',
-  RESOLVED: 'Resolve',
-  POSTMORTEM: 'Begin Postmortem',
+  ACKNOWLEDGED: "Acknowledge",
+  INVESTIGATING: "Start Investigation",
+  RESOLVED: "Resolve",
+  POSTMORTEM: "Begin Postmortem",
 };
 
 const ACTION_COLORS = {
-  ACKNOWLEDGED: 'from-amber-600 to-amber-500 shadow-amber-500/20',
-  INVESTIGATING: 'from-blue-600 to-blue-500 shadow-blue-500/20',
-  RESOLVED: 'from-emerald-600 to-emerald-500 shadow-emerald-500/20',
-  POSTMORTEM: 'from-zinc-600 to-zinc-500 shadow-zinc-500/20',
+  ACKNOWLEDGED: "from-amber-600 to-amber-500 shadow-amber-500/20",
+  INVESTIGATING: "from-blue-600 to-blue-500 shadow-blue-500/20",
+  RESOLVED: "from-emerald-600 to-emerald-500 shadow-emerald-500/20",
+  POSTMORTEM: "from-zinc-600 to-zinc-500 shadow-zinc-500/20",
 };
 
 const SEVERITY_OPTIONS = [
-  { value: 'P1_CRITICAL', label: 'P1 - Critical' },
-  { value: 'P2_HIGH', label: 'P2 - High' },
-  { value: 'P3_MEDIUM', label: 'P3 - Medium' },
-  { value: 'P4_LOW', label: 'P4 - Low' },
+  { value: "P1_CRITICAL", label: "P1 - Critical" },
+  { value: "P2_HIGH", label: "P2 - High" },
+  { value: "P3_MEDIUM", label: "P3 - Medium" },
+  { value: "P4_LOW", label: "P4 - Low" },
 ];
 
 const EVENT_ICONS = {
@@ -68,9 +76,9 @@ const EVENT_ICONS = {
 };
 
 const EVENT_COLORS = {
-  STATUS_CHANGE: 'text-blue-400 bg-blue-500/10',
-  ACTION: 'text-emerald-400 bg-emerald-500/10',
-  COMMENT: 'text-zinc-400 bg-zinc-500/10',
+  STATUS_CHANGE: "text-blue-400 bg-blue-500/10",
+  ACTION: "text-emerald-400 bg-emerald-500/10",
+  COMMENT: "text-zinc-400 bg-zinc-500/10",
 };
 
 function DetailSkeleton() {
@@ -78,15 +86,18 @@ function DetailSkeleton() {
     <div className="animate-fade-in">
       <div className="skeleton w-32 h-4 rounded mb-8" />
       <div className="skeleton w-3/4 h-8 rounded-lg mb-4" />
+
       <div className="flex gap-3 mb-8">
         <div className="skeleton w-16 h-6 rounded-md" />
         <div className="skeleton w-24 h-6 rounded-full" />
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="skeleton h-48 rounded-xl" />
           <div className="skeleton h-64 rounded-xl" />
         </div>
+
         <div className="skeleton h-48 rounded-xl" />
       </div>
     </div>
@@ -95,26 +106,43 @@ function DetailSkeleton() {
 
 function formatDate(dateStr) {
   if (!dateStr) return null;
-  return new Date(dateStr).toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+
+  return new Date(dateStr).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 export default function IncidentDetail() {
   const { id } = useParams();
+
   const [incident, setIncident] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [transitioning, setTransitioning] = useState(false);
 
-  const [comment, setComment] = useState('');
-  const [eventType, setEventType] = useState('COMMENT');
+  const [comment, setComment] = useState("");
+  const [eventType, setEventType] = useState("COMMENT");
   const [submitting, setSubmitting] = useState(false);
+
   const [members, setMembers] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  const [editing, setEditing] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    serviceName: "",
+  });
+
   const { canModify } = useAuth();
+  const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
     try {
@@ -122,11 +150,12 @@ export default function IncidentDetail() {
         getIncident(id),
         getTimeline(id),
       ]);
+
       setIncident(incRes.data);
       setTimeline(tlRes.data);
       setError(null);
     } catch {
-      setError('Failed to load incident.');
+      setError("Failed to load incident.");
     } finally {
       setLoading(false);
     }
@@ -137,27 +166,42 @@ export default function IncidentDetail() {
   }, [fetchData]);
 
   useEffect(() => {
-    getMembers().then((res) => setMembers(res.data)).catch(() => setMembers([]));
+    getMembers()
+      .then((res) => setMembers(res.data))
+      .catch(() => setMembers([]));
   }, []);
 
-  // Live updates: when this incident changes (status, assignment, comment, SLA alert...) reload it.
+  // Live updates: refresh when this incident changes.
   const refreshTimer = useRef(null);
+
   useIncidentEvents((event) => {
     if (String(event.incidentId) !== String(id)) return;
+
+    if (event.type === "INCIDENT_DELETED") {
+      navigate("/incidents");
+      return;
+    }
+
     clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(fetchData, 300);
   });
+
   useResync(fetchData);
-  useEffect(() => () => clearTimeout(refreshTimer.current), []);
+
+  useEffect(() => {
+    return () => clearTimeout(refreshTimer.current);
+  }, []);
 
   async function handleTransition(targetStatus) {
     if (!targetStatus) return;
+
     setTransitioning(true);
+
     try {
       await updateIncidentStatus(id, targetStatus);
       await fetchData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update status.');
+      setError(err.response?.data?.error || "Failed to update status.");
     } finally {
       setTransitioning(false);
     }
@@ -165,11 +209,12 @@ export default function IncidentDetail() {
 
   async function handleAssign(assignee) {
     setSaving(true);
+
     try {
       await assignIncident(id, assignee);
       await fetchData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to assign incident.');
+      setError(err.response?.data?.error || "Failed to assign incident.");
     } finally {
       setSaving(false);
     }
@@ -177,45 +222,113 @@ export default function IncidentDetail() {
 
   async function handleSeverity(severity) {
     setSaving(true);
+
     try {
       await updateIncident(id, { severity });
       await fetchData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to change severity.');
+      setError(err.response?.data?.error || "Failed to change severity.");
     } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEditing() {
+    setEditForm({
+      title: incident.title || "",
+      description: incident.description || "",
+      serviceName: incident.serviceName || "",
+    });
+
+    setEditing(true);
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+
+    if (!editForm.title.trim() || !editForm.serviceName.trim()) {
+      setError("Title and service name are required.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await updateIncident(id, {
+        title: editForm.title,
+        description: editForm.description,
+        serviceName: editForm.serviceName,
+      });
+
+      setEditing(false);
+      await fetchData();
+    } catch (err) {
+      setError(
+        err.response?.data?.errors?.join(", ") ||
+          err.response?.data?.error ||
+          "Failed to update incident.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Delete only after the user confirms in the custom modal.
+  async function handleDelete() {
+    if (saving) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      await deleteIncident(id);
+      navigate("/incidents");
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to delete incident.");
       setSaving(false);
     }
   }
 
   async function handleAddEvent(e) {
     e.preventDefault();
+
     if (!comment.trim()) return;
+
     setSubmitting(true);
+
     try {
-      // The author is the signed-in user; the server ignores any client-supplied name.
+      // The author is the signed-in user; the server ignores client-supplied names.
       await addTimelineEvent(id, {
         type: eventType,
         message: comment,
       });
-      setComment('');
+
+      setComment("");
+
       const tlRes = await getTimeline(id);
       setTimeline(tlRes.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add timeline event.');
+      setError(err.response?.data?.error || "Failed to add timeline event.");
     } finally {
       setSubmitting(false);
     }
   }
 
   if (loading) return <DetailSkeleton />;
+
   if (error && !incident) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in">
         <div className="p-4 rounded-full bg-rose-500/10 mb-4">
           <AlertTriangle size={32} className="text-rose-400" />
         </div>
+
         <p className="text-zinc-400">{error}</p>
-        <Link to="/incidents" className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+
+        <Link
+          to="/incidents"
+          className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+        >
           Back to incidents
         </Link>
       </div>
@@ -240,11 +353,16 @@ export default function IncidentDetail() {
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <SeverityBadge severity={incident.severity} showLabel />
           <StatusBadge status={incident.status} />
-          <span className="text-zinc-600 text-sm font-mono">INC-{incident.id}</span>
+
+          <span className="text-zinc-600 text-sm font-mono">
+            INC-{incident.id}
+          </span>
         </div>
+
         <h1 className="text-xl sm:text-2xl font-bold text-zinc-50 tracking-tight mb-2 break-words">
           {incident.title}
         </h1>
+
         {incident.description && (
           <p className="text-sm text-zinc-400 leading-relaxed max-w-3xl break-words">
             {incident.description}
@@ -260,17 +378,24 @@ export default function IncidentDetail() {
             <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Next Step</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                    Next Step
+                  </p>
+
                   <p className="text-sm text-zinc-300">
-                    Transition to <span className="font-semibold text-zinc-100">{nextStatus}</span>
+                    Transition to{" "}
+                    <span className="font-semibold text-zinc-100">
+                      {nextStatus}
+                    </span>
                   </p>
                 </div>
+
                 <button
                   onClick={() => handleTransition(nextStatus)}
                   disabled={transitioning}
                   className={clsx(
-                    'inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-gradient-to-r shadow-lg disabled:opacity-40',
-                    ACTION_COLORS[nextStatus]
+                    "inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-gradient-to-r shadow-lg disabled:opacity-40",
+                    ACTION_COLORS[nextStatus],
                   )}
                 >
                   {transitioning ? (
@@ -278,21 +403,28 @@ export default function IncidentDetail() {
                   ) : (
                     <ArrowRight size={15} />
                   )}
-                  {transitioning ? 'Updating...' : ACTION_LABELS[nextStatus]}
+
+                  {transitioning ? "Updating..." : ACTION_LABELS[nextStatus]}
                 </button>
               </div>
             </div>
           )}
 
           {/* Reopen: the fix did not hold */}
-          {canModify && incident.status === 'RESOLVED' && (
+          {canModify && incident.status === "RESOLVED" && (
             <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Not fixed?</p>
-                <p className="text-sm text-zinc-300">Reopen this incident and resume investigating.</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                  Not fixed?
+                </p>
+
+                <p className="text-sm text-zinc-300">
+                  Reopen this incident and resume investigating.
+                </p>
               </div>
+
               <button
-                onClick={() => handleTransition('INVESTIGATING')}
+                onClick={() => handleTransition("INVESTIGATING")}
                 disabled={transitioning}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-amber-300 border border-amber-500/30 hover:bg-amber-500/10 disabled:opacity-40 transition-colors"
               >
@@ -321,35 +453,44 @@ export default function IncidentDetail() {
 
             {/* Add event form (viewers are read-only) */}
             {canModify && (
-            <form onSubmit={handleAddEvent} className="px-5 py-4 border-b border-white/[0.06]">
-              <div className="flex gap-2 mb-3">
-                <select
-                  value={eventType}
-                  onChange={(e) => setEventType(e.target.value)}
-                  className="appearance-none bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-medium text-zinc-300 focus-ring cursor-pointer"
-                >
-                  <option value="COMMENT">Comment</option>
-                  <option value="ACTION">Action</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="What happened? What did you do?"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="flex-1 bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus-ring"
-                />
-                <button
-                  type="submit"
-                  disabled={submitting || !comment.trim()}
-                  className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  Add
-                </button>
-              </div>
-            </form>
+              <form
+                onSubmit={handleAddEvent}
+                className="px-5 py-4 border-b border-white/[0.06]"
+              >
+                <div className="flex gap-2 mb-3">
+                  <select
+                    value={eventType}
+                    onChange={(e) => setEventType(e.target.value)}
+                    className="appearance-none bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-medium text-zinc-300 focus-ring cursor-pointer"
+                  >
+                    <option value="COMMENT">Comment</option>
+                    <option value="ACTION">Action</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="What happened? What did you do?"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    className="flex-1 bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus-ring"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={submitting || !comment.trim()}
+                    className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {submitting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Send size={14} />
+                    )}
+                    Add
+                  </button>
+                </div>
+              </form>
             )}
 
             {/* Timeline entries */}
@@ -361,26 +502,45 @@ export default function IncidentDetail() {
               <div className="divide-y divide-white/[0.04]">
                 {timeline.map((event) => {
                   const EventIcon = EVENT_ICONS[event.type] || MessageSquare;
-                  const colorClass = EVENT_COLORS[event.type] || EVENT_COLORS.COMMENT;
+
+                  const colorClass =
+                    EVENT_COLORS[event.type] || EVENT_COLORS.COMMENT;
+
                   return (
-                    <div key={event.id} className="px-5 py-4 hover:bg-white/[0.01] transition-colors">
+                    <div
+                      key={event.id}
+                      className="px-5 py-4 hover:bg-white/[0.01] transition-colors"
+                    >
                       <div className="flex gap-3">
-                        <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5', colorClass)}>
+                        <div
+                          className={clsx(
+                            "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
+                            colorClass,
+                          )}
+                        >
                           <EventIcon size={14} />
                         </div>
+
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center justify-between gap-x-3 mb-1">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                                {event.type.replace('_', ' ')}
+                                {event.type.replace("_", " ")}
                               </span>
-                              <span className="text-[11px] text-zinc-600">by {event.author}</span>
+
+                              <span className="text-[11px] text-zinc-600">
+                                by {event.author}
+                              </span>
                             </div>
+
                             <span className="text-[11px] text-zinc-600">
                               {formatDate(event.createdAt)}
                             </span>
                           </div>
-                          <p className="text-sm text-zinc-300 leading-relaxed">{event.message}</p>
+
+                          <p className="text-sm text-zinc-300 leading-relaxed">
+                            {event.message}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -397,51 +557,78 @@ export default function IncidentDetail() {
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-4">
               Incident Details
             </h3>
+
             <dl className="space-y-4">
               <div>
                 <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
-                  <Server size={12} /> Service
+                  <Server size={12} />
+                  Service
                 </dt>
-                <dd className="text-sm font-medium text-zinc-200">{incident.serviceName}</dd>
+
+                <dd className="text-sm font-medium text-zinc-200">
+                  {incident.serviceName}
+                </dd>
               </div>
+
               <div>
                 <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
-                  <User size={12} /> Assignee
+                  <User size={12} />
+                  Assignee
                 </dt>
+
                 <dd className="text-sm text-zinc-200">
                   {canModify ? (
                     <select
-                      value={incident.assignee || ''}
+                      value={incident.assignee || ""}
                       onChange={(e) => handleAssign(e.target.value)}
                       disabled={saving}
                       className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-sm text-zinc-200 focus-ring cursor-pointer disabled:opacity-50"
                     >
                       <option value="">Unassigned</option>
-                      {incident.assignee && !members.some((m) => m.username === incident.assignee) && (
-                        <option value={incident.assignee}>{incident.assignee}</option>
-                      )}
+
+                      {incident.assignee &&
+                        !members.some(
+                          (m) => m.username === incident.assignee,
+                        ) && (
+                          <option value={incident.assignee}>
+                            {incident.assignee}
+                          </option>
+                        )}
+
                       {members.map((m) => (
-                        <option key={m.id} value={m.username}>{m.username} ({m.role.toLowerCase()})</option>
+                        <option key={m.id} value={m.username}>
+                          {m.username} ({m.role.toLowerCase()})
+                        </option>
                       ))}
                     </select>
                   ) : (
-                    incident.assignee || <span className="text-zinc-600">Unassigned</span>
+                    incident.assignee || (
+                      <span className="text-zinc-600">Unassigned</span>
+                    )
                   )}
                 </dd>
               </div>
+
               {incident.createdBy && (
                 <div>
                   <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
-                    <User size={12} /> Reported by
+                    <User size={12} />
+                    Reported by
                   </dt>
-                  <dd className="text-sm text-zinc-300">{incident.createdBy}</dd>
+
+                  <dd className="text-sm text-zinc-300">
+                    {incident.createdBy}
+                  </dd>
                 </div>
               )}
+
               {canModify && (
                 <div>
                   <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
-                    <Shield size={12} /> Severity
+                    <Shield size={12} />
+                    Severity
                   </dt>
+
                   <dd>
                     <select
                       value={incident.severity}
@@ -450,43 +637,154 @@ export default function IncidentDetail() {
                       className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-sm text-zinc-200 focus-ring cursor-pointer disabled:opacity-50"
                     >
                       {SEVERITY_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
                       ))}
                     </select>
                   </dd>
                 </div>
               )}
+
               <div>
                 <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
-                  <Calendar size={12} /> Created
+                  <Calendar size={12} />
+                  Created
                 </dt>
-                <dd className="text-sm text-zinc-300">{formatDate(incident.createdAt)}</dd>
+
+                <dd className="text-sm text-zinc-300">
+                  {formatDate(incident.createdAt)}
+                </dd>
               </div>
+
               {incident.resolvedAt && (
                 <div>
                   <dt className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 mb-1">
-                    <CheckCircle2 size={12} /> Resolved
+                    <CheckCircle2 size={12} />
+                    Resolved
                   </dt>
-                  <dd className="text-sm text-emerald-400">{formatDate(incident.resolvedAt)}</dd>
+
+                  <dd className="text-sm text-emerald-400">
+                    {formatDate(incident.resolvedAt)}
+                  </dd>
                 </div>
               )}
             </dl>
           </div>
+
+          {/* Edit / delete (ENGINEER and ADMIN) */}
+          {canModify && (
+            <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-4">
+                Manage
+              </h3>
+
+              {editing ? (
+                <form onSubmit={handleSaveEdit} className="space-y-3">
+                  <input
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        title: e.target.value,
+                      })
+                    }
+                    placeholder="Title"
+                    maxLength={255}
+                    className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus-ring"
+                  />
+
+                  <input
+                    type="text"
+                    value={editForm.serviceName}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        serviceName: e.target.value,
+                      })
+                    }
+                    placeholder="Service"
+                    maxLength={100}
+                    className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus-ring"
+                  />
+
+                  <textarea
+                    rows={4}
+                    value={editForm.description}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Description"
+                    maxLength={5000}
+                    className="w-full bg-zinc-700/50 border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus-ring resize-none"
+                  />
+
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-40 transition-colors"
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      className="flex-1 py-2.5 rounded-lg text-sm font-medium text-zinc-400 border border-white/[0.08] hover:text-zinc-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={startEditing}
+                    className="inline-flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium text-zinc-300 border border-white/[0.08] hover:bg-white/[0.04] transition-colors"
+                  >
+                    <Pencil size={14} />
+                    Edit details
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    disabled={saving}
+                    className="inline-flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 disabled:opacity-40 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Delete incident
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quick stats */}
           <div className="bg-zinc-800/50 rounded-xl border border-white/[0.06] p-5">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-4">
               Quick Info
             </h3>
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-500">Timeline events</span>
-                <span className="text-sm font-semibold text-zinc-200">{timeline.length}</span>
+
+                <span className="text-sm font-semibold text-zinc-200">
+                  {timeline.length}
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-500">Severity</span>
                 <SeverityBadge severity={incident.severity} />
               </div>
+
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-500">Status</span>
                 <StatusBadge status={incident.status} />
@@ -496,9 +794,78 @@ export default function IncidentDetail() {
         </div>
       </div>
 
+      {/* Error message */}
       {error && (
         <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
           <p className="text-rose-400 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Custom delete confirmation modal */}
+      {deleteConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => {
+            if (!saving) setDeleteConfirmOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-incident-title"
+            aria-describedby="delete-incident-description"
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl shadow-black/40"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10">
+              <Trash2 size={22} className="text-rose-400" />
+            </div>
+
+            <h2
+              id="delete-incident-title"
+              className="text-lg font-semibold text-zinc-100"
+            >
+              Delete incident?
+            </h2>
+
+            <p
+              id="delete-incident-description"
+              className="mt-2 text-sm leading-6 text-zinc-400"
+            >
+              Are you sure you want to delete this incident? It disappears from
+              lists, dashboards and AI recommendations. Its history is kept.
+            </p>
+
+            <div className="mt-7 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                disabled={saving}
+                className="rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-zinc-300 hover:bg-white/5 disabled:opacity-40 transition-colors"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50 transition-colors"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    Delete incident
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

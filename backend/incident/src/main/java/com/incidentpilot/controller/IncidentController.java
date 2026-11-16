@@ -6,6 +6,7 @@ import com.incidentpilot.dto.CreateIncidentRequest;
 import com.incidentpilot.dto.IncidentResponse;
 import com.incidentpilot.dto.IncidentStatsResponse;
 import com.incidentpilot.dto.RagResponse;
+import com.incidentpilot.dto.RelatedIncidentResponse;
 import com.incidentpilot.dto.UpdateIncidentRequest;
 import com.incidentpilot.dto.UpdateStatusRequest;
 import com.incidentpilot.model.IncidentStatus;
@@ -13,6 +14,7 @@ import com.incidentpilot.model.Severity;
 import com.incidentpilot.security.CurrentUser;
 import com.incidentpilot.service.AuditService;
 import com.incidentpilot.service.IncidentService;
+import com.incidentpilot.service.IncidentSimilarityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -34,6 +36,7 @@ public class IncidentController {
 
     private final IncidentService incidentService;
     private final AuditService auditService;
+    private final IncidentSimilarityService incidentSimilarityService;
 
     @PostMapping
     public ResponseEntity<IncidentResponse> createIncident(
@@ -72,6 +75,19 @@ public class IncidentController {
     @GetMapping("/{id}/similar")
     public ResponseEntity<RagResponse> getSimilarIncidents(@PathVariable Long id) {
         return ResponseEntity.ok(incidentService.findSimilarIncidents(id));
+    }
+
+    /** Similar past incidents from the database only: works even when the AI service is down. */
+    @GetMapping("/{id}/related")
+    public ResponseEntity<List<RelatedIncidentResponse>> getRelatedIncidents(@PathVariable Long id) {
+        return ResponseEntity.ok(incidentSimilarityService.findRelated(id));
+    }
+
+    /** Soft delete (ENGINEER/ADMIN): history is kept, the incident disappears from views and recommendations. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteIncident(@PathVariable Long id) {
+        incidentService.deleteIncident(id);
+        return ResponseEntity.noContent().build();
     }
 
     /** Partial update of title, description, severity and service name. */
