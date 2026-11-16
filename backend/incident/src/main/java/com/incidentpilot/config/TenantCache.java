@@ -3,6 +3,7 @@ package com.incidentpilot.config;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.incidentpilot.util.TransactionUtils;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.Cursor;
@@ -126,6 +127,21 @@ public class TenantCache {
             tripBreaker(e);
         }
     }
+
+    @PostConstruct
+    public void testRedisConnection() {
+        try {
+            String response = redis.getConnectionFactory()
+                    .getConnection()
+                    .ping();
+
+            log.info("REDIS PING SUCCESS: {}", response);
+
+        } catch (Exception e) {
+            log.error("REDIS PING FAILED", e);
+        }
+    }
+
 
     private boolean available() {
         return System.currentTimeMillis() >= bypassUntil;
