@@ -1,0 +1,112 @@
+services:
+  # ==========================================
+  # MySQL Database
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    container_name: incidentpilot-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root121
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-incidentpilot}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - incidentpilot-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD"'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ==========================================
+  # Kafka
+  # ==========================================
+  kafka:
+    image: apache/kafka:4.1.0
+    container_name: incidentpilot-kafka
+    hostname: kafka
+    ports:
+      - "${KAFKA_PORT:-9092}:29092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - incidentpilot-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Redis Cache
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: incidentpilot-redis
+    command:
+      - sh
+      - -c
+      - 'exec redis-server --appendonly yes --requirepass "redis121"'
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - incidentpilot-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'redis-cli -a "redis121" ping | grep -q PONG'
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ==========================================
+  # Qdrant Vector Database
+  # ==========================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: incidentpilot-qdrant
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - incidentpilot-network
+    restart: unless-stopped
+
+# ==========================================
+# Docker Network
+# ==========================================
+networks:
+  incidentpilot-network:
+    name: incidentpilot-network
+    driver: bridge
+
+# ==========================================
+# Persistent Volumes
+# ==========================================
+volumes:
+  mysql_data:
+  kafka_data:
+  redis_data:
+  qdrant_data:
