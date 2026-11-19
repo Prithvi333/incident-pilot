@@ -1,0 +1,27 @@
+services:
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.19.0
+    container_name: incidentpilot-filebeat
+    user: root
+    restart: unless-stopped
+    command: ["-e", "--strict.perms=false"]
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat_data:/usr/share/filebeat/data
+      - ingestion_logs:/var/log/incidentpilot:ro
+
+    networks:
+      - incidentpilot-network
+
+volumes:
+  filebeat_data:
+  ingestion_logs:
+    external: true
+    name: ingestion_logs
+
+networks:
+  incidentpilot-network:
+    external: true
+    name: incidentpilot-network

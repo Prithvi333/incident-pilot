@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # IncidentPilot Backend
+  - job_name: "incidentpilot-backend"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["${BACKEND_HOST}:${BACKEND_PORT}"]
+
+  # IncidentPilot AI Service
+  - job_name: "incidentpilot-ai"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["${AI_HOST}:${AI_PORT}"]
+
+  # IncidentPilot Ingestion Service
+  - job_name: "incidentpilot-ingestion"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["${INGESTION_HOST}:${INGESTION_PORT}"]

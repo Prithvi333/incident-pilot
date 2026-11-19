@@ -45,6 +45,11 @@ public class SecurityConfig {
                         .hasAnyRole("ENGINEER", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/documents/**")
                         .hasAnyRole("ENGINEER", "ADMIN")
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/info",
+                                "/actuator/prometheus"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(

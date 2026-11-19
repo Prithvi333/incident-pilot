@@ -128,21 +128,6 @@ public class TenantCache {
         }
     }
 
-    @PostConstruct
-    public void testRedisConnection() {
-        try {
-            String response = redis.getConnectionFactory()
-                    .getConnection()
-                    .ping();
-
-            log.info("REDIS PING SUCCESS: {}", response);
-
-        } catch (Exception e) {
-            log.error("REDIS PING FAILED", e);
-        }
-    }
-
-
     private boolean available() {
         return System.currentTimeMillis() >= bypassUntil;
     }

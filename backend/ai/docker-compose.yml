@@ -1,4 +1,3 @@
-
 services:
   # ==========================================
   # Ollama
@@ -69,7 +68,7 @@ services:
       OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text:latest}
 
       # Kafka
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       DOCUMENT_INGESTION_TOPIC: ${DOCUMENT_INGESTION_TOPIC:-incidentpilot.document-ingestion}
 
       # Kafka Consumer
@@ -95,6 +94,9 @@ services:
       AI_CB_WAIT_DURATION: ${AI_CB_WAIT_DURATION:-30s}
       AI_CB_HALF_OPEN_CALLS: ${AI_CB_HALF_OPEN_CALLS:-2}
 
+    volumes:
+      - ai_logs:/app/logs
+
     networks:
       - incidentpilot-network
 
@@ -117,3 +119,6 @@ networks:
 # ==========================================
 volumes:
   ollama_data:
+  ai_logs:
+    external: true
+    name: ai_logs

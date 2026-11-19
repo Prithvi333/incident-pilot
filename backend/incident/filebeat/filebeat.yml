@@ -1,0 +1,29 @@
+filebeat.inputs:
+  # IncidentPilot Spring Boot JSON logs
+  - type: filestream
+    id: incident-spring-logs
+    enabled: true
+    paths:
+      - /var/log/incidentpilot/*.log
+
+    parsers:
+      - ndjson:
+          target: ""
+          add_error_key: true
+
+    fields:
+      app:
+        name: incident
+        environment: production
+    fields_under_root: true
+
+    prospector.scanner.check_interval: 5s
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+
+output.logstash:
+  hosts: ["${LOGSTASH_HOST:incidentpilot-logstash:5044}"]
+
+logging.level: info

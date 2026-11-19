@@ -1,0 +1,77 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.0
+    container_name: incidentpilot-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      xpack.security.authc.api_key.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS -u "elastic:$${ELASTIC_PASSWORD}"
+          "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s"
+          > /dev/null
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - incidentpilot-monitoring
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.19.0
+    container_name: incidentpilot-logstash
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+      ELASTICSEARCH_USERNAME: "elastic"
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+      XPACK_MONITORING_ENABLED: "false"
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - incidentpilot-monitoring
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.19.0
+    container_name: incidentpilot-kibana
+    environment:
+      SERVER_NAME: incidentpilot-kibana
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY}
+      XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY}
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - incidentpilot-monitoring
+
+volumes:
+  es_data:
+    name: incidentpilot-monitoring_es_data
+
+networks:
+  incidentpilot-monitoring:
+    name: incidentpilot-monitoring
+    driver: bridge

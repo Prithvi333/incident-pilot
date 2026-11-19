@@ -17,7 +17,7 @@ services:
       LOG_FILE: ${LOG_FILE:-logs/incidentpilot.log}
 
       # MySQL
-      MYSQL_HOST: mysql
+      MYSQL_HOST: ${MYSQL_HOST:-localhost}
       MYSQL_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE:-incidentpilot}
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-incidentpilot}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
@@ -29,24 +29,33 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
 
       # Kafka
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       DOCUMENT_INGESTION_TOPIC: ${DOCUMENT_INGESTION_TOPIC:-incidentpilot.document-ingestion}
 
       # AI Service
       AI_SERVICE_URL: http://ai:8081
 
       # Redis
-      REDIS_HOST: redis
+      REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis121}
 
       # CORS / WebSocket
       ALLOWED_ORIGINS: "${ALLOWED_ORIGINS}"
 
+    volumes:
+      - incidentpilot_logs:/app/logs
+
     networks:
       - incidentpilot-network
 
     restart: unless-stopped
+
+# ==========================================
+# Volumes
+# ==========================================
+volumes:
+  incidentpilot_logs:
 
 # ==========================================
 # Connect to Infrastructure Network
